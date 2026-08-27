@@ -9,8 +9,6 @@ import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.TextView
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 class DeviceAdapter(
     private val context: Context,
@@ -45,12 +43,17 @@ class DeviceAdapter(
 
         val services = result.scanRecord?.serviceUuids?.joinToString(", ") { it.uuid.toString() } ?: "N/D"
 
-        // Estrai manufacturer data
+        // Estrai manufacturer data (SparseArray)
         val manufacturerData = result.scanRecord?.manufacturerSpecificData
-        val manufacturerString = if (!manufacturerData.isNullOrEmpty()) {
-            manufacturerData.entries.joinToString("; ") { (companyId, data) ->
-                "ID:0x${companyId.toString(16)} Data:${bytesToHex(data)}"
+        val manufacturerString = if (manufacturerData != null && manufacturerData.size() > 0) {
+            val sb = StringBuilder()
+            for (i in 0 until manufacturerData.size()) {
+                val companyId = manufacturerData.keyAt(i)
+                val data = manufacturerData.valueAt(i)
+                sb.append("ID:0x${companyId.toString(16)} Data:${bytesToHex(data)}")
+                if (i < manufacturerData.size() - 1) sb.append("; ")
             }
+            sb.toString()
         } else {
             "N/D"
         }

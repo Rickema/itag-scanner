@@ -1,5 +1,6 @@
 package com.example.itagscanner
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -56,8 +57,7 @@ class MainActivity : AppCompatActivity() {
                 val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
                 val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE).toInt()
                 if (device != null && rssi >= minRssi) {
-                    // Aggiungi alla lista come fake ScanResult? Non possiamo creare ScanResult, quindi usiamo una classe custom.
-                    // Per semplicità, mostriamo solo in un toast o in una lista separata. Rimandiamo.
+                    // Per ora non aggiungiamo alla lista (solo BLE)
                 }
             }
         }
@@ -81,6 +81,16 @@ class MainActivity : AppCompatActivity() {
         override fun onScanFailed(errorCode: Int) {
             handler.post {
                 Toast.makeText(this@MainActivity, "Scansione fallita: $errorCode", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private val statusReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.example.itagscanner.STATUS_UPDATE") {
+                val near = intent.getBooleanExtra("isNear", false)
+                val msg = if (near) "Dispositivo VICINO" else "Dispositivo LONTANO"
+                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -139,6 +149,21 @@ class MainActivity : AppCompatActivity() {
         updateStatus(false)
     }
 
+    override fun onResume() {
+        super.onResume()
+        val filter = IntentFilter("com.example.itagscanner.STATUS_UPDATE")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(statusReceiver, filter)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterReceiver(statusReceiver)
+    }
+
     private fun checkPermissions(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val permissions = mutableListOf(
@@ -173,10 +198,8 @@ class MainActivity : AppCompatActivity() {
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
 
-        // Avvia scansione BLE
         scanner?.startScan(null, settings, scanCallback)
 
-        // Se richiesto, avvia anche discovery classico
         if (includeClassic) {
             val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
             registerReceiver(classicReceiver, filter)
@@ -202,7 +225,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onDeviceSelected(result: ScanResult) {
-        // Ferma la scansione di discovery
         stopScanning()
 
         val device = result.device
@@ -210,7 +232,6 @@ class MainActivity : AppCompatActivity() {
         val address = device.address
         val services = result.scanRecord?.serviceUuids?.map { it.uuid.toString() }
 
-        // Salva i dati in SharedPreferences per il servizio
         val prefs = getSharedPreferences("itag_prefs", MODE_PRIVATE)
         prefs.edit().apply {
             putString("target_mac", address)
@@ -221,7 +242,6 @@ class MainActivity : AppCompatActivity() {
 
         Toast.makeText(this, "Selezionato: $name ($address)", Toast.LENGTH_LONG).show()
 
-        // Avvia il servizio di tracking in background
         val intent = Intent(this, ScannerService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
@@ -235,28 +255,4 @@ class MainActivity : AppCompatActivity() {
         stopScanning()
         super.onDestroy()
     }
-    private val statusReceiver = object : BroadcastReceiver() {
-    override fun onReceive(context: Context?, intent: Intent?) {
-        if (intent?.action == "com.example.itagscanner.STATUS_UPDATE") {
-            val near = intent.getBooleanExtra("isNear", false)
-            val msg = if (near) "Dispositivo VICINO" else "Dispositivo LONTANO"
-            Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
-        }
-    }
-}
-
-override fun onResume() {
-    super.onResume()
-    val filter = IntentFilter("com.example.itagscanner.STATUS_UPDATE")
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-    } else {
-        registerReceiver(statusReceiver, filter)
-    }
-}
-
-override fun onPause() {
-    super.onPause()
-    unregisterReceiver(statusReceiver)
-}
 }
