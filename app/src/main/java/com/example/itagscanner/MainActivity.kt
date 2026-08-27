@@ -19,6 +19,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelUuid
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.ListView
@@ -59,8 +60,6 @@ class MainActivity : AppCompatActivity() {
                 val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
                 val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE).toInt()
                 if (device != null && rssi >= minRssi) {
-                    // Debug
-                    Toast.makeText(this@MainActivity, "Trovato classico: ${device.name ?: "N/D"} (${device.address})", Toast.LENGTH_SHORT).show()
                     addClassicDevice(device, rssi)
                 }
             }
@@ -76,18 +75,22 @@ class MainActivity : AppCompatActivity() {
             val name = device.name ?: "N/D"
             val address = device.address ?: "N/D"
             val rssi = result.rssi
+
             val uuids = result.scanRecord?.serviceUuids?.joinToString(", ") { uuidToName(it.uuid.toString()) } ?: "N/D"
             val manufacturer = getManufacturerString(result)
-            val category = "BLE"
+            val appearance = parseAppearance(result)
+            val modelId = parseFastPairModelId(result)
 
             val item = DeviceItem(
                 name = name,
                 address = address,
                 rssi = rssi,
                 type = "BLE",
-                category = category,
+                category = appearance, // usiamo appearance come categoria
                 uuids = uuids,
                 manufacturer = manufacturer,
+                appearance = appearance,
+                modelId = modelId,
                 scanResult = result
             )
 
@@ -189,6 +192,7 @@ class MainActivity : AppCompatActivity() {
 
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES) // per ricevere anche Scan Response
             .build()
 
         scanner?.startScan(null, settings, scanCallback)
@@ -232,6 +236,8 @@ class MainActivity : AppCompatActivity() {
             category = category,
             uuids = "N/D",
             manufacturer = "N/D",
+            appearance = "N/D",
+            modelId = "N/D",
             bluetoothDevice = device
         )
         deviceList.add(item)
@@ -280,7 +286,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun uuidToName(uuid: String): String {
-        val shortUuid = uuid.substring(4, 8).uppercase() // estrae i 16 bit
+        val shortUuid = uuid.substring(4, 8).uppercase()
         return when (shortUuid) {
             "1800" -> "Generic Access"
             "1801" -> "Generic Attribute"
@@ -288,9 +294,61 @@ class MainActivity : AppCompatActivity() {
             "180F" -> "Battery Service"
             "180D" -> "Heart Rate"
             "1812" -> "HID"
+            "FE2C" -> "Fast Pair"
             "FFE0" -> "iTAG/Tracker"
             else -> uuid
         }
+    }
+
+    // Nuova funzione per estrarre l'Appearance dai dati EIR
+    private fun parseAppearance(result: ScanResult): String {
+        val scanRecord = result.scanRecord ?: return "N/D"
+        val bytes = scanRecord.bytes
+        var i = 0
+        while (i < bytes.size) {
+            val length = bytes[i].toInt() and 0xFF
+            if (length == 0) break
+            val type = bytes[i + 1].toInt() and 0xFF
+            if (type == 0x19) { // GAP Appearance
+                if (length >= 3) {
+                    val appearanceValue = ((bytes[i + 2].toInt() and 0xFF) or
+                                          ((bytes[i + 3].toInt() and 0xFF) shl 8))
+                    return appearanceToName(appearanceValue)
+                }
+            }
+            i += length + 1
+        }
+        return "N/D"
+    }
+
+    private fun appearanceToName(value: Int): String {
+        return when (value) {
+            0x0000 -> "Sconosciuto"
+            0x0040 -> "Telefono"
+            0x0080 -> "Computer"
+            0x00C0 -> "Orologio"
+            0x00C1 -> "Orologio sportivo"
+            0x0100 -> "Auricolari"
+            0x0104 -> "Cuffie"
+            0x0180 -> "Braccialetto"
+            0x0200 -> "Cardiofrequenzimetro"
+            0x0300 -> "Tracker"
+            else -> "0x${value.toString(16).uppercase()}"
+        }
+    }
+
+    // Estrae Model ID da Fast Pair (Service Data per FE2C)
+    private fun parseFastPairModelId(result: ScanResult): String {
+        val scanRecord = result.scanRecord ?: return "N/D"
+        val serviceData = scanRecord.serviceData
+        if (serviceData == null || serviceData.isEmpty()) return "N/D"
+        // Cerchiamo UUID FE2C
+        val fastPairUuid = ParcelUuid.fromString("0000FE2C-0000-1000-8000-00805F9B34FB")
+        val data = serviceData[fastPairUuid] ?: return "N/D"
+        if (data.size < 3) return "N/D"
+        // Model ID è di 3 byte (little-endian)
+        val modelId = String.format("%02X:%02X:%02X", data[0], data[1], data[2])
+        return modelId
     }
 
     private fun onDeviceSelected(item: DeviceItem) {
@@ -313,6 +371,10 @@ class MainActivity : AppCompatActivity() {
             startService(intent)
         }
         statusText.text = "Tracking di ${item.name} attivo"
+    }
+
+    private fun updateStatus(running: Boolean) {
+        statusText.text = if (running) "Scansione attiva" else "Scansione ferma"
     }
 
     override fun onDestroy() {

@@ -38,10 +38,12 @@ class DeviceAdapter(
 
         holder.nameText.text = "Nome: ${item.name}"
         holder.typeText.text = "Tipo: ${item.type}${if (item.category.isNotEmpty()) " - ${item.category}" else ""}"
+        holder.appearanceText.text = "Aspetto: ${item.appearance}"
         holder.macText.text = "MAC: ${item.address}"
         holder.rssiText.text = "RSSI: ${item.rssi} dBm"
         holder.uuidText.text = "UUID/Service: ${item.uuids}"
         holder.manufacturerText.text = "Produttore: ${item.manufacturer}"
+        holder.modelIdText.text = "Model ID: ${item.modelId}"
 
         holder.selectButton.setOnClickListener {
             onSelect(item)
@@ -53,10 +55,12 @@ class DeviceAdapter(
     private class ViewHolder(view: View) {
         val nameText: TextView = view.findViewById(R.id.nameText)
         val typeText: TextView = view.findViewById(R.id.typeText)
+        val appearanceText: TextView = view.findViewById(R.id.appearanceText)
         val macText: TextView = view.findViewById(R.id.macText)
         val rssiText: TextView = view.findViewById(R.id.rssiText)
         val uuidText: TextView = view.findViewById(R.id.uuidText)
         val manufacturerText: TextView = view.findViewById(R.id.manufacturerText)
+        val modelIdText: TextView = view.findViewById(R.id.modelIdText)
         val selectButton: Button = view.findViewById(R.id.selectButton)
     }
 }
