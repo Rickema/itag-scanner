@@ -25,12 +25,36 @@
         android:layout_height="wrap_content"
         android:text="Ferma scansione" />
 
+    <Button
+        android:id="@+id/manageButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Gestisci dispositivi selezionati" />
+
+    <CheckBox
+        android:id="@+id/includeClassicCheckBox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Includi Bluetooth classico" />
+
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="Dispositivi BLE rilevati (tocca Seleziona per scegliere):"
-        android:textStyle="italic" />
+        android:layout_marginTop="8dp"
+        android:text="Soglia minima RSSI (dBm):" />
+
+    <SeekBar
+        android:id="@+id/rssiSeekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="50"
+        android:progress="25" />
+
+    <TextView
+        android:id="@+id/rssiValueText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="-75 dBm" />
 
     <ListView
         android:id="@+id/deviceListView"

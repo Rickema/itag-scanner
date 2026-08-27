@@ -9,6 +9,8 @@ import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.TextView
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class DeviceAdapter(
     private val context: Context,
@@ -41,13 +43,23 @@ class DeviceAdapter(
         val address = device.address ?: "N/D"
         val rssi = result.rssi
 
-        // Estrai i service UUIDs
         val services = result.scanRecord?.serviceUuids?.joinToString(", ") { it.uuid.toString() } ?: "N/D"
+
+        // Estrai manufacturer data
+        val manufacturerData = result.scanRecord?.manufacturerSpecificData
+        val manufacturerString = if (!manufacturerData.isNullOrEmpty()) {
+            manufacturerData.entries.joinToString("; ") { (companyId, data) ->
+                "ID:0x${companyId.toString(16)} Data:${bytesToHex(data)}"
+            }
+        } else {
+            "N/D"
+        }
 
         holder.nameText.text = "Nome: $name"
         holder.macText.text = "MAC: $address"
         holder.rssiText.text = "RSSI: $rssi dBm"
         holder.uuidText.text = "UUID: $services"
+        holder.manufacturerText.text = "Manufacturer: $manufacturerString"
 
         holder.selectButton.setOnClickListener {
             onSelect(result)
@@ -56,11 +68,16 @@ class DeviceAdapter(
         return view
     }
 
+    private fun bytesToHex(bytes: ByteArray): String {
+        return bytes.joinToString(":") { String.format("%02X", it) }
+    }
+
     private class ViewHolder(view: View) {
         val nameText: TextView = view.findViewById(R.id.nameText)
         val macText: TextView = view.findViewById(R.id.macText)
         val rssiText: TextView = view.findViewById(R.id.rssiText)
         val uuidText: TextView = view.findViewById(R.id.uuidText)
+        val manufacturerText: TextView = view.findViewById(R.id.manufacturerText)
         val selectButton: Button = view.findViewById(R.id.selectButton)
     }
 }

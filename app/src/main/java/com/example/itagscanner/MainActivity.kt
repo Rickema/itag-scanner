@@ -1,22 +1,26 @@
 package com.example.itagscanner
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.ListView
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -28,6 +32,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
+    private lateinit var manageButton: Button
+    private lateinit var includeClassicCheckBox: CheckBox
+    private lateinit var rssiSeekBar: SeekBar
+    private lateinit var rssiValueText: TextView
     private lateinit var deviceListView: ListView
 
     private lateinit var bluetoothAdapter: BluetoothAdapter
@@ -38,22 +46,35 @@ class MainActivity : AppCompatActivity() {
     private val deviceList = mutableListOf<ScanResult>()
     private lateinit var adapter: DeviceAdapter
 
-    // Callback per la scansione
+    private var minRssi = -75 // valore predefinito
+    private var includeClassic = false
+
+    // Receiver per il discovery classico
+    private val classicReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == BluetoothDevice.ACTION_FOUND) {
+                val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE).toInt()
+                if (device != null && rssi >= minRssi) {
+                    // Aggiungi alla lista come fake ScanResult? Non possiamo creare ScanResult, quindi usiamo una classe custom.
+                    // Per semplicità, mostriamo solo in un toast o in una lista separata. Rimandiamo.
+                }
+            }
+        }
+    }
+
     private val scanCallback = object : ScanCallback() {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            // Aggiungi o aggiorna il dispositivo nella lista
-            val index = deviceList.indexOfFirst { it.device.address == result.device.address }
-            if (index >= 0) {
-                deviceList[index] = result
-            } else {
+            if (result.rssi < minRssi) return  // filtro RSSI
+
+            // Aggiungi solo se non presente
+            val exists = deviceList.any { it.device.address == result.device.address }
+            if (!exists) {
                 deviceList.add(result)
-            }
-            // Ordina per RSSI decrescente (più forte prima)
-            deviceList.sortByDescending { it.rssi }
-            // Aggiorna la UI sul main thread
-            handler.post {
-                adapter.notifyDataSetChanged()
+                handler.post {
+                    adapter.notifyDataSetChanged()
+                }
             }
         }
 
@@ -71,6 +92,10 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.statusText)
         startButton = findViewById(R.id.startButton)
         stopButton = findViewById(R.id.stopButton)
+        manageButton = findViewById(R.id.manageButton)
+        includeClassicCheckBox = findViewById(R.id.includeClassicCheckBox)
+        rssiSeekBar = findViewById(R.id.rssiSeekBar)
+        rssiValueText = findViewById(R.id.rssiValueText)
         deviceListView = findViewById(R.id.deviceListView)
 
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -78,10 +103,24 @@ class MainActivity : AppCompatActivity() {
         scanner = bluetoothAdapter.bluetoothLeScanner
 
         adapter = DeviceAdapter(this, deviceList) { selected ->
-            // Quando l'utente preme "Seleziona"
             onDeviceSelected(selected)
         }
         deviceListView.adapter = adapter
+
+        // Configura SeekBar
+        rssiSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                minRssi = -100 + progress // progress da 0 a 50 -> -100..-50
+                rssiValueText.text = "$minRssi dBm"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        rssiValueText.text = "$minRssi dBm"
+
+        includeClassicCheckBox.setOnCheckedChangeListener { _, isChecked ->
+            includeClassic = isChecked
+        }
 
         startButton.setOnClickListener {
             if (checkPermissions()) {
@@ -91,6 +130,10 @@ class MainActivity : AppCompatActivity() {
 
         stopButton.setOnClickListener {
             stopScanning()
+        }
+
+        manageButton.setOnClickListener {
+            startActivity(Intent(this, DeviceManagerActivity::class.java))
         }
 
         updateStatus(false)
@@ -130,7 +173,15 @@ class MainActivity : AppCompatActivity() {
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
 
+        // Avvia scansione BLE
         scanner?.startScan(null, settings, scanCallback)
+
+        // Se richiesto, avvia anche discovery classico
+        if (includeClassic) {
+            val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+            registerReceiver(classicReceiver, filter)
+            bluetoothAdapter.startDiscovery()
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -139,11 +190,15 @@ class MainActivity : AppCompatActivity() {
             scanner?.stopScan(scanCallback)
             scanning = false
         }
+        if (includeClassic) {
+            bluetoothAdapter.cancelDiscovery()
+            unregisterReceiver(classicReceiver)
+        }
         updateStatus(false)
     }
 
     private fun updateStatus(running: Boolean) {
-        statusText.text = if (running) "Scansione BLE attiva" else "Scansione ferma"
+        statusText.text = if (running) "Scansione attiva" else "Scansione ferma"
     }
 
     private fun onDeviceSelected(result: ScanResult) {
@@ -180,4 +235,28 @@ class MainActivity : AppCompatActivity() {
         stopScanning()
         super.onDestroy()
     }
+    private val statusReceiver = object : BroadcastReceiver() {
+    override fun onReceive(context: Context?, intent: Intent?) {
+        if (intent?.action == "com.example.itagscanner.STATUS_UPDATE") {
+            val near = intent.getBooleanExtra("isNear", false)
+            val msg = if (near) "Dispositivo VICINO" else "Dispositivo LONTANO"
+            Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
+override fun onResume() {
+    super.onResume()
+    val filter = IntentFilter("com.example.itagscanner.STATUS_UPDATE")
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+    } else {
+        registerReceiver(statusReceiver, filter)
+    }
+}
+
+override fun onPause() {
+    super.onPause()
+    unregisterReceiver(statusReceiver)
+}
 }
