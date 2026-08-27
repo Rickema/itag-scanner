@@ -50,6 +50,8 @@ class MainActivity : AppCompatActivity() {
     private var minRssi = -75 // valore predefinito
     private var includeClassic = false
 
+    private var classicReceiverRegistered = false
+
     // Receiver per il discovery classico
     private val classicReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -213,9 +215,10 @@ class MainActivity : AppCompatActivity() {
             scanner?.stopScan(scanCallback)
             scanning = false
         }
-        if (includeClassic) {
+        if (includeClassic && classicReceiverRegistered) {
             bluetoothAdapter.cancelDiscovery()
             unregisterReceiver(classicReceiver)
+            classicReceiverRegistered = false
         }
         updateStatus(false)
     }

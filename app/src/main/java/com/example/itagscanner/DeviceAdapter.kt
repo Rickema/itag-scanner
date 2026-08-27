@@ -43,14 +43,15 @@ class DeviceAdapter(
 
         val services = result.scanRecord?.serviceUuids?.joinToString(", ") { it.uuid.toString() } ?: "N/D"
 
-        // Estrai manufacturer data (SparseArray)
+        // Manufacturer data
         val manufacturerData = result.scanRecord?.manufacturerSpecificData
         val manufacturerString = if (manufacturerData != null && manufacturerData.size() > 0) {
             val sb = StringBuilder()
             for (i in 0 until manufacturerData.size()) {
                 val companyId = manufacturerData.keyAt(i)
+                val companyName = getManufacturerName(companyId) ?: "0x${companyId.toString(16).uppercase()}"
                 val data = manufacturerData.valueAt(i)
-                sb.append("ID:0x${companyId.toString(16)} Data:${bytesToHex(data)}")
+                sb.append("$companyName ($companyId) Data:${bytesToHex(data)}")
                 if (i < manufacturerData.size() - 1) sb.append("; ")
             }
             sb.toString()
@@ -62,7 +63,7 @@ class DeviceAdapter(
         holder.macText.text = "MAC: $address"
         holder.rssiText.text = "RSSI: $rssi dBm"
         holder.uuidText.text = "UUID: $services"
-        holder.manufacturerText.text = "Manufacturer: $manufacturerString"
+        holder.manufacturerText.text = "Produttore: $manufacturerString"
 
         holder.selectButton.setOnClickListener {
             onSelect(result)
@@ -73,6 +74,21 @@ class DeviceAdapter(
 
     private fun bytesToHex(bytes: ByteArray): String {
         return bytes.joinToString(":") { String.format("%02X", it) }
+    }
+
+    private fun getManufacturerName(companyId: Int): String? {
+        return when (companyId) {
+            0x004C -> "Apple"
+            0x0075 -> "Samsung"
+            0x0006 -> "Microsoft"
+            0x000D -> "Texas Instruments"
+            0x000F -> "Broadcom"
+            0x001D -> "Google"
+            0x0059 -> "Nordic Semiconductor"
+            0x0131 -> "Tile"
+            0x0157 -> "Amazon"
+            else -> null
+        }
     }
 
     private class ViewHolder(view: View) {
