@@ -1,15 +1,24 @@
 package com.example.itagscanner
 
 import android.Manifest
-import android.content.BroadcastReceiver
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.Button
+import android.widget.ListView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -19,28 +28,38 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
-    private lateinit var scanInfoText: TextView
+    private lateinit var deviceListView: ListView
 
-    private val updateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == "com.example.itagscanner.SCAN_UPDATE") {
-                val name = intent.getStringExtra("name") ?: "N/D"
-                val address = intent.getStringExtra("address") ?: "N/D"
-                val rssi = intent.getIntExtra("rssi", 0)
-                val isNear = intent.getBooleanExtra("isNear", false)
-                val timestamp = intent.getLongExtra("timestamp", 0L)
+    private lateinit var bluetoothAdapter: BluetoothAdapter
+    private var scanner: BluetoothLeScanner? = null
+    private var scanning = false
 
-                val currentTime = System.currentTimeMillis()
-                val ageSeconds = ((currentTime - timestamp) / 1000).toInt()
+    private val handler = Handler(Looper.getMainLooper())
+    private val deviceList = mutableListOf<ScanResult>()
+    private lateinit var adapter: DeviceAdapter
 
-                val nearText = if (isNear) "SÌ" else "NO"
-                scanInfoText.text = """
-                    Nome: $name
-                    MAC: $address
-                    RSSI: $rssi dBm
-                    Vicino: $nearText
-                    Ultimo avvistamento: $ageSeconds sec fa
-                """.trimIndent()
+    // Callback per la scansione
+    private val scanCallback = object : ScanCallback() {
+        @SuppressLint("MissingPermission")
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            // Aggiungi o aggiorna il dispositivo nella lista
+            val index = deviceList.indexOfFirst { it.device.address == result.device.address }
+            if (index >= 0) {
+                deviceList[index] = result
+            } else {
+                deviceList.add(result)
+            }
+            // Ordina per RSSI decrescente (più forte prima)
+            deviceList.sortByDescending { it.rssi }
+            // Aggiorna la UI sul main thread
+            handler.post {
+                adapter.notifyDataSetChanged()
+            }
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            handler.post {
+                Toast.makeText(this@MainActivity, "Scansione fallita: $errorCode", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -52,34 +71,29 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.statusText)
         startButton = findViewById(R.id.startButton)
         stopButton = findViewById(R.id.stopButton)
-        scanInfoText = findViewById(R.id.scanInfoText)
+        deviceListView = findViewById(R.id.deviceListView)
+
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        bluetoothAdapter = bluetoothManager.adapter
+        scanner = bluetoothAdapter.bluetoothLeScanner
+
+        adapter = DeviceAdapter(this, deviceList) { selected ->
+            // Quando l'utente preme "Seleziona"
+            onDeviceSelected(selected)
+        }
+        deviceListView.adapter = adapter
 
         startButton.setOnClickListener {
             if (checkPermissions()) {
-                startService()
+                startScanning()
             }
         }
 
         stopButton.setOnClickListener {
-            stopService()
+            stopScanning()
         }
 
         updateStatus(false)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        val filter = IntentFilter("com.example.itagscanner.SCAN_UPDATE")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(updateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(updateReceiver, filter)
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        unregisterReceiver(updateReceiver)
     }
 
     private fun checkPermissions(): Boolean {
@@ -104,24 +118,66 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-    private fun startService() {
+    @SuppressLint("MissingPermission")
+    private fun startScanning() {
+        if (scanning) return
+        scanning = true
+        deviceList.clear()
+        adapter.notifyDataSetChanged()
+        updateStatus(true)
+
+        val settings = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .build()
+
+        scanner?.startScan(null, settings, scanCallback)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun stopScanning() {
+        if (scanning) {
+            scanner?.stopScan(scanCallback)
+            scanning = false
+        }
+        updateStatus(false)
+    }
+
+    private fun updateStatus(running: Boolean) {
+        statusText.text = if (running) "Scansione BLE attiva" else "Scansione ferma"
+    }
+
+    private fun onDeviceSelected(result: ScanResult) {
+        // Ferma la scansione di discovery
+        stopScanning()
+
+        val device = result.device
+        val name = device.name ?: "Sconosciuto"
+        val address = device.address
+        val services = result.scanRecord?.serviceUuids?.map { it.uuid.toString() }
+
+        // Salva i dati in SharedPreferences per il servizio
+        val prefs = getSharedPreferences("itag_prefs", MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("target_mac", address)
+            putString("target_name", name)
+            putString("target_uuid", services?.joinToString(",") ?: "")
+            putBoolean("target_set", true)
+        }.apply()
+
+        Toast.makeText(this, "Selezionato: $name ($address)", Toast.LENGTH_LONG).show()
+
+        // Avvia il servizio di tracking in background
         val intent = Intent(this, ScannerService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
         } else {
             startService(intent)
         }
-        updateStatus(true)
+        statusText.text = "Tracking di $name attivo"
     }
 
-    private fun stopService() {
-        val intent = Intent(this, ScannerService::class.java)
-        stopService(intent)
-        updateStatus(false)
-        scanInfoText.text = "Nessun dato"
-    }
-
-    private fun updateStatus(running: Boolean) {
-        statusText.text = if (running) "Scansione attiva" else "Scansione ferma"
+    override fun onDestroy() {
+        stopScanning()
+        super.onDestroy()
     }
 }

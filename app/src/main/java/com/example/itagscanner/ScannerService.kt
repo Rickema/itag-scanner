@@ -35,11 +35,22 @@ class ScannerService : Service() {
     private var nearCheckRunnable: Runnable? = null
     private var farCheckRunnable: Runnable? = null
 
+    // Dati target (dal prefs)
+    private var targetMac: String? = null
+    private var targetName: String? = null
+    private var targetUuid: String? = null
+
     override fun onCreate() {
         super.onCreate()
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = bluetoothManager.adapter
         scanner = bluetoothAdapter.bluetoothLeScanner
+
+        // Leggi i dati dal prefs
+        val prefs = getSharedPreferences("itag_prefs", MODE_PRIVATE)
+        targetMac = prefs.getString("target_mac", null)
+        targetName = prefs.getString("target_name", null)
+        targetUuid = prefs.getString("target_uuid", null)
 
         startForeground(1, createNotification())
     }
@@ -75,7 +86,7 @@ class ScannerService : Service() {
 
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("iTAG Scanner")
-            .setContentText("Scansione BLE attiva")
+            .setContentText("Tracking attivo")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -86,17 +97,12 @@ class ScannerService : Service() {
         if (scanning) return
         scanning = true
 
-        val filters = listOf(
-            ScanFilter.Builder()
-                .setServiceUuid(ParcelUuid(UUID.fromString(Constants.SERVICE_UUID_FFE0)))
-                .build()
-        )
-
+        // Crea un filtro (opzionale). Per semplicità, scansioniamo tutti e filtriamo manualmente.
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
             .build()
 
-        scanner?.startScan(filters, settings, scanCallback)
+        scanner?.startScan(null, settings, scanCallback)
     }
 
     private fun stopScanning() {
@@ -110,36 +116,36 @@ class ScannerService : Service() {
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device
-            val name = device.name ?: "Sconosciuto"
+            val name = device.name ?: ""
             val address = device.address
-            val rssi = result.rssi
-            val services = result.scanRecord?.serviceUuids
+            val services = result.scanRecord?.serviceUuids?.map { it.uuid.toString() }
 
-            // Verifica: UUID presente e/o nome corrispondente
-            val uuidMatch = services?.any { it.uuid.toString().equals(Constants.SERVICE_UUID_FFE0, true) } ?: false
-            val nameMatch = name.equals(Constants.DEVICE_NAME, true)
+            // Controlla se il dispositivo corrisponde al target
+            val matchesMac = !targetMac.isNullOrEmpty() && address == targetMac
+            val matchesName = !targetName.isNullOrEmpty() && name.equals(targetName, true)
+            val matchesUuid = !targetUuid.isNullOrEmpty() && services?.any { uuid ->
+                uuid.equals(targetUuid, true) || targetUuid!!.split(",").any { it == uuid }
+            } ?: false
 
-            if (uuidMatch || nameMatch) {
-                // Aggiorna timestamp
+            if (matchesMac || matchesName || matchesUuid) {
                 lastSeenTimestamp = System.currentTimeMillis()
 
-                // Invia un broadcast di aggiornamento dati per l'Activity
+                // Invia aggiornamento all'Activity (se aperta)
                 val updateIntent = Intent("com.example.itagscanner.SCAN_UPDATE").apply {
-                    putExtra("name", name)
+                    putExtra("name", name.ifEmpty { "Sconosciuto" })
                     putExtra("address", address)
-                    putExtra("rssi", rssi)
+                    putExtra("rssi", result.rssi)
                     putExtra("isNear", isNear)
                     putExtra("timestamp", lastSeenTimestamp)
                 }
                 sendBroadcast(updateIntent)
 
-                // Valuta prossimità
-                checkProximity(rssi)
+                checkProximity(result.rssi)
             }
         }
 
         override fun onScanFailed(errorCode: Int) {
-            // Log errori non necessario per ora
+            // Non gestito
         }
     }
 
@@ -176,7 +182,7 @@ class ScannerService : Service() {
 
     private fun sendBroadcast(action: String) {
         val intent = Intent(action)
-        intent.setPackage(packageName) // solo per la nostra app? Meglio non limitare
+        intent.setPackage(packageName)
         sendBroadcast(intent)
     }
 }

@@ -17,7 +17,7 @@
         android:id="@+id/startButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Avvia scansione" />
+        android:text="Avvia scansione BLE" />
 
     <Button
         android:id="@+id/stopButton"
@@ -26,11 +26,17 @@
         android:text="Ferma scansione" />
 
     <TextView
-        android:id="@+id/scanInfoText"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:fontFamily="monospace"
-        android:text="Nessun dato"
-        android:textSize="14sp" />
+        android:layout_marginTop="10dp"
+        android:text="Dispositivi BLE rilevati (tocca Seleziona per scegliere):"
+        android:textStyle="italic" />
+
+    <ListView
+        android:id="@+id/deviceListView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="@android:color/darker_gray"
+        android:dividerHeight="1dp" />
 </LinearLayout>
