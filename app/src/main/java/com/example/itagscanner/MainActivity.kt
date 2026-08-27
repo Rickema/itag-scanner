@@ -3,6 +3,7 @@ package com.example.itagscanner
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
@@ -58,6 +59,8 @@ class MainActivity : AppCompatActivity() {
                 val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
                 val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE).toInt()
                 if (device != null && rssi >= minRssi) {
+                    // Debug
+                    Toast.makeText(this@MainActivity, "Trovato classico: ${device.name ?: "N/D"} (${device.address})", Toast.LENGTH_SHORT).show()
                     addClassicDevice(device, rssi)
                 }
             }
@@ -73,20 +76,21 @@ class MainActivity : AppCompatActivity() {
             val name = device.name ?: "N/D"
             val address = device.address ?: "N/D"
             val rssi = result.rssi
-            val uuids = result.scanRecord?.serviceUuids?.joinToString(", ") { it.uuid.toString() } ?: "N/D"
+            val uuids = result.scanRecord?.serviceUuids?.joinToString(", ") { uuidToName(it.uuid.toString()) } ?: "N/D"
             val manufacturer = getManufacturerString(result)
+            val category = "BLE"
 
             val item = DeviceItem(
                 name = name,
                 address = address,
                 rssi = rssi,
                 type = "BLE",
+                category = category,
                 uuids = uuids,
                 manufacturer = manufacturer,
                 scanResult = result
             )
 
-            // Aggiungi solo se non presente (per MAC)
             if (deviceList.none { it.address == address }) {
                 deviceList.add(item)
                 handler.post { adapter.notifyDataSetChanged() }
@@ -122,7 +126,6 @@ class MainActivity : AppCompatActivity() {
         }
         deviceListView.adapter = adapter
 
-        // Configura SeekBar
         rssiSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 minRssi = -100 + progress
@@ -194,7 +197,12 @@ class MainActivity : AppCompatActivity() {
             val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
             registerReceiver(classicReceiver, filter)
             classicReceiverRegistered = true
-            bluetoothAdapter.startDiscovery()
+            val started = bluetoothAdapter.startDiscovery()
+            if (!started) {
+                Toast.makeText(this, "Discovery classica non partita", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Discovery classica avviata", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -215,11 +223,13 @@ class MainActivity : AppCompatActivity() {
     private fun addClassicDevice(device: BluetoothDevice, rssi: Int) {
         if (deviceList.any { it.address == device.address }) return
         val name = device.name ?: "N/D"
+        val category = getBluetoothClassCategory(device.bluetoothClass)
         val item = DeviceItem(
             name = name,
             address = device.address,
             rssi = rssi,
             type = "Classic",
+            category = category,
             uuids = "N/D",
             manufacturer = "N/D",
             bluetoothDevice = device
@@ -228,8 +238,21 @@ class MainActivity : AppCompatActivity() {
         handler.post { adapter.notifyDataSetChanged() }
     }
 
-    private fun updateStatus(running: Boolean) {
-        statusText.text = if (running) "Scansione attiva" else "Scansione ferma"
+    private fun getBluetoothClassCategory(bluetoothClass: BluetoothClass?): String {
+        if (bluetoothClass == null) return "N/D"
+        return when (bluetoothClass.majorDeviceClass) {
+            BluetoothClass.Device.Major.AUDIO_VIDEO -> "Audio/Video"
+            BluetoothClass.Device.Major.COMPUTER -> "Computer"
+            BluetoothClass.Device.Major.HEALTH -> "Health"
+            BluetoothClass.Device.Major.IMAGING -> "Imaging"
+            BluetoothClass.Device.Major.MISC -> "Misc"
+            BluetoothClass.Device.Major.NETWORKING -> "Network"
+            BluetoothClass.Device.Major.PERIPHERAL -> "Peripheral"
+            BluetoothClass.Device.Major.PHONE -> "Phone"
+            BluetoothClass.Device.Major.TOY -> "Toy"
+            BluetoothClass.Device.Major.WEARABLE -> "Wearable"
+            else -> "Altro"
+        }
     }
 
     private fun getManufacturerString(result: ScanResult): String {
@@ -254,6 +277,20 @@ class MainActivity : AppCompatActivity() {
             if (i < data.size() - 1) sb.append("; ")
         }
         return sb.toString()
+    }
+
+    private fun uuidToName(uuid: String): String {
+        val shortUuid = uuid.substring(4, 8).uppercase() // estrae i 16 bit
+        return when (shortUuid) {
+            "1800" -> "Generic Access"
+            "1801" -> "Generic Attribute"
+            "180A" -> "Device Information"
+            "180F" -> "Battery Service"
+            "180D" -> "Heart Rate"
+            "1812" -> "HID"
+            "FFE0" -> "iTAG/Tracker"
+            else -> uuid
+        }
     }
 
     private fun onDeviceSelected(item: DeviceItem) {

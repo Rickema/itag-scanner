@@ -37,9 +37,10 @@ class DeviceAdapter(
         val item = devices[position]
 
         holder.nameText.text = "Nome: ${item.name}"
-        holder.macText.text = "MAC: ${item.address}  (${item.type})"
+        holder.typeText.text = "Tipo: ${item.type}${if (item.category.isNotEmpty()) " - ${item.category}" else ""}"
+        holder.macText.text = "MAC: ${item.address}"
         holder.rssiText.text = "RSSI: ${item.rssi} dBm"
-        holder.uuidText.text = "UUID: ${item.uuids}"
+        holder.uuidText.text = "UUID/Service: ${item.uuids}"
         holder.manufacturerText.text = "Produttore: ${item.manufacturer}"
 
         holder.selectButton.setOnClickListener {
@@ -51,6 +52,7 @@ class DeviceAdapter(
 
     private class ViewHolder(view: View) {
         val nameText: TextView = view.findViewById(R.id.nameText)
+        val typeText: TextView = view.findViewById(R.id.typeText)
         val macText: TextView = view.findViewById(R.id.macText)
         val rssiText: TextView = view.findViewById(R.id.rssiText)
         val uuidText: TextView = view.findViewById(R.id.uuidText)

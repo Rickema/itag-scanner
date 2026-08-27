@@ -19,6 +19,13 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/typeText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tipo"
+            android:textSize="12sp" />
+
+        <TextView
             android:id="@+id/macText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -45,7 +52,7 @@
             android:id="@+id/manufacturerText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Manufacturer"
+            android:text="Produttore"
             android:textSize="10sp"
             android:ellipsize="middle"
             android:maxLines="2" />
