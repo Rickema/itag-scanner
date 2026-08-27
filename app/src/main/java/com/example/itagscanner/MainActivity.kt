@@ -44,12 +44,11 @@ class MainActivity : AppCompatActivity() {
     private var scanning = false
 
     private val handler = Handler(Looper.getMainLooper())
-    private val deviceList = mutableListOf<ScanResult>()
+    private val deviceList = mutableListOf<DeviceItem>()
     private lateinit var adapter: DeviceAdapter
 
-    private var minRssi = -75 // valore predefinito
+    private var minRssi = -75
     private var includeClassic = false
-
     private var classicReceiverRegistered = false
 
     // Receiver per il discovery classico
@@ -59,7 +58,7 @@ class MainActivity : AppCompatActivity() {
                 val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
                 val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE).toInt()
                 if (device != null && rssi >= minRssi) {
-                    // Per ora non aggiungiamo alla lista (solo BLE)
+                    addClassicDevice(device, rssi)
                 }
             }
         }
@@ -68,31 +67,35 @@ class MainActivity : AppCompatActivity() {
     private val scanCallback = object : ScanCallback() {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            if (result.rssi < minRssi) return  // filtro RSSI
+            if (result.rssi < minRssi) return
 
-            // Aggiungi solo se non presente
-            val exists = deviceList.any { it.device.address == result.device.address }
-            if (!exists) {
-                deviceList.add(result)
-                handler.post {
-                    adapter.notifyDataSetChanged()
-                }
+            val device = result.device
+            val name = device.name ?: "N/D"
+            val address = device.address ?: "N/D"
+            val rssi = result.rssi
+            val uuids = result.scanRecord?.serviceUuids?.joinToString(", ") { it.uuid.toString() } ?: "N/D"
+            val manufacturer = getManufacturerString(result)
+
+            val item = DeviceItem(
+                name = name,
+                address = address,
+                rssi = rssi,
+                type = "BLE",
+                uuids = uuids,
+                manufacturer = manufacturer,
+                scanResult = result
+            )
+
+            // Aggiungi solo se non presente (per MAC)
+            if (deviceList.none { it.address == address }) {
+                deviceList.add(item)
+                handler.post { adapter.notifyDataSetChanged() }
             }
         }
 
         override fun onScanFailed(errorCode: Int) {
             handler.post {
-                Toast.makeText(this@MainActivity, "Scansione fallita: $errorCode", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private val statusReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == "com.example.itagscanner.STATUS_UPDATE") {
-                val near = intent.getBooleanExtra("isNear", false)
-                val msg = if (near) "Dispositivo VICINO" else "Dispositivo LONTANO"
-                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Scansione BLE fallita: $errorCode", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -122,7 +125,7 @@ class MainActivity : AppCompatActivity() {
         // Configura SeekBar
         rssiSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                minRssi = -100 + progress // progress da 0 a 50 -> -100..-50
+                minRssi = -100 + progress
                 rssiValueText.text = "$minRssi dBm"
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -149,21 +152,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         updateStatus(false)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        val filter = IntentFilter("com.example.itagscanner.STATUS_UPDATE")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(statusReceiver, filter)
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        unregisterReceiver(statusReceiver)
     }
 
     private fun checkPermissions(): Boolean {
@@ -205,6 +193,7 @@ class MainActivity : AppCompatActivity() {
         if (includeClassic) {
             val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
             registerReceiver(classicReceiver, filter)
+            classicReceiverRegistered = true
             bluetoothAdapter.startDiscovery()
         }
     }
@@ -223,27 +212,62 @@ class MainActivity : AppCompatActivity() {
         updateStatus(false)
     }
 
+    private fun addClassicDevice(device: BluetoothDevice, rssi: Int) {
+        if (deviceList.any { it.address == device.address }) return
+        val name = device.name ?: "N/D"
+        val item = DeviceItem(
+            name = name,
+            address = device.address,
+            rssi = rssi,
+            type = "Classic",
+            uuids = "N/D",
+            manufacturer = "N/D",
+            bluetoothDevice = device
+        )
+        deviceList.add(item)
+        handler.post { adapter.notifyDataSetChanged() }
+    }
+
     private fun updateStatus(running: Boolean) {
         statusText.text = if (running) "Scansione attiva" else "Scansione ferma"
     }
 
-    private fun onDeviceSelected(result: ScanResult) {
-        stopScanning()
+    private fun getManufacturerString(result: ScanResult): String {
+        val data = result.scanRecord?.manufacturerSpecificData
+        if (data == null || data.size() == 0) return "N/D"
+        val sb = StringBuilder()
+        for (i in 0 until data.size()) {
+            val companyId = data.keyAt(i)
+            val companyName = when (companyId) {
+                0x004C -> "Apple"
+                0x0075 -> "Samsung"
+                0x0006 -> "Microsoft"
+                0x000D -> "Texas Instruments"
+                0x000F -> "Broadcom"
+                0x001D -> "Google"
+                0x0059 -> "Nordic Semiconductor"
+                0x0131 -> "Tile"
+                0x0157 -> "Amazon"
+                else -> "0x${companyId.toString(16).uppercase()}"
+            }
+            sb.append("$companyName ($companyId)")
+            if (i < data.size() - 1) sb.append("; ")
+        }
+        return sb.toString()
+    }
 
-        val device = result.device
-        val name = device.name ?: "Sconosciuto"
-        val address = device.address
-        val services = result.scanRecord?.serviceUuids?.map { it.uuid.toString() }
+    private fun onDeviceSelected(item: DeviceItem) {
+        stopScanning()
 
         val prefs = getSharedPreferences("itag_prefs", MODE_PRIVATE)
         prefs.edit().apply {
-            putString("target_mac", address)
-            putString("target_name", name)
-            putString("target_uuid", services?.joinToString(",") ?: "")
+            putString("target_mac", item.address)
+            putString("target_name", item.name)
+            putString("target_uuid", item.uuids)
             putBoolean("target_set", true)
         }.apply()
 
-        Toast.makeText(this, "Selezionato: $name ($address)", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Selezionato: ${item.name} (${item.address})", Toast.LENGTH_LONG).show()
 
         val intent = Intent(this, ScannerService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -251,7 +275,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             startService(intent)
         }
-        statusText.text = "Tracking di $name attivo"
+        statusText.text = "Tracking di ${item.name} attivo"
     }
 
     override fun onDestroy() {
