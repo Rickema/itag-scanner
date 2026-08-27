@@ -10,7 +10,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Scansione ferma"
-        android:textSize="18sp" />
+        android:textSize="18sp"
+        android:textStyle="bold" />
 
     <Button
         android:id="@+id/startButton"
@@ -23,4 +24,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Ferma scansione" />
+
+    <TextView
+        android:id="@+id/scanInfoText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:fontFamily="monospace"
+        android:text="Nessun dato"
+        android:textSize="14sp" />
 </LinearLayout>

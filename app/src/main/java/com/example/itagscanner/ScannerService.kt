@@ -110,23 +110,36 @@ class ScannerService : Service() {
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device
-            val name = device.name
+            val name = device.name ?: "Sconosciuto"
+            val address = device.address
             val rssi = result.rssi
             val services = result.scanRecord?.serviceUuids
 
             // Verifica: UUID presente e/o nome corrispondente
             val uuidMatch = services?.any { it.uuid.toString().equals(Constants.SERVICE_UUID_FFE0, true) } ?: false
-            val nameMatch = name?.equals(Constants.DEVICE_NAME, true) ?: false
+            val nameMatch = name.equals(Constants.DEVICE_NAME, true)
 
             if (uuidMatch || nameMatch) {
                 // Aggiorna timestamp
                 lastSeenTimestamp = System.currentTimeMillis()
+
+                // Invia un broadcast di aggiornamento dati per l'Activity
+                val updateIntent = Intent("com.example.itagscanner.SCAN_UPDATE").apply {
+                    putExtra("name", name)
+                    putExtra("address", address)
+                    putExtra("rssi", rssi)
+                    putExtra("isNear", isNear)
+                    putExtra("timestamp", lastSeenTimestamp)
+                }
+                sendBroadcast(updateIntent)
+
+                // Valuta prossimità
                 checkProximity(rssi)
             }
         }
 
         override fun onScanFailed(errorCode: Int) {
-            // Puoi loggare o gestire errori
+            // Log errori non necessario per ora
         }
     }
 
@@ -134,10 +147,8 @@ class ScannerService : Service() {
         val nearCondition = rssi >= Constants.RSSI_THRESHOLD
 
         if (nearCondition && !isNear) {
-            // Pianifica l'invio di NEAR dopo il debounce
             if (nearCheckRunnable == null) {
                 nearCheckRunnable = Runnable {
-                    // Controlla se è ancora presente e vicino
                     if (System.currentTimeMillis() - lastSeenTimestamp <= Constants.NEAR_DEBOUNCE_MS &&
                         lastSeenTimestamp > 0 &&
                         isNear.not()
@@ -150,7 +161,6 @@ class ScannerService : Service() {
                 handler.postDelayed(nearCheckRunnable!!, Constants.NEAR_DEBOUNCE_MS)
             }
         } else if (!nearCondition && isNear) {
-            // Se si allontana, pianifica FAR dopo il debounce
             if (farCheckRunnable == null) {
                 farCheckRunnable = Runnable {
                     if (System.currentTimeMillis() - lastSeenTimestamp >= Constants.FAR_DEBOUNCE_MS) {
