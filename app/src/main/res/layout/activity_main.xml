@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="#F5F5F5">
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Stato: Pronto alla scansione"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="3"
+        android:layout_marginBottom="8dp">
+
+        <Button
+            android:id="@+id/startButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Avvia Scan"
+            android:backgroundTint="#3F51B5"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/stopButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Ferma"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:backgroundTint="#757575"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/manageButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Gestione"
+            android:backgroundTint="#00897B"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <CheckBox
+        android:id="@+id/includeClassicCheckBox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Includi Bluetooth Classico nella ricerca dispositivi"
+        android:checked="true"
+        android:textSize="13sp"
+        android:layout_marginBottom="6dp" />
+
+    <TextView
+        android:id="@+id/rssiValueText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Soglia minima RSSI: -100 dBm"
+        android:textSize="12sp"
+        android:textColor="#666666" />
+
+    <SeekBar
+        android:id="@+id/rssiSeekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="80"
+        android:progress="0"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Scheda Log Database espandibile/riducibile al click -->
+    <LinearLayout
+        android:id="@+id/databaseLogHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#E8EAF6"
+        android:padding="8dp"
+        android:clickable="true"
+        android:focusable="true">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="📁 LOG DATABASE SIG (Tocca per ridurre/espandere)"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:textColor="#3F51B5" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/debugText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#212121"
+        android:textColor="#81C784"
+        android:fontFamily="monospace"
+        android:textSize="11sp"
+        android:padding="8dp"
+        android:visibility="gone"
+        android:text="Caricamento database..." />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Dispositivi Rilevati (Tieni premuto per rinominare):"
+        android:textStyle="bold"
+        android:textSize="13sp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="4dp" />
+
+    <ListView
+        android:id="@+id/deviceListView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="#E0E0E0"
+        android:dividerHeight="1dp" />
+
+</LinearLayout>

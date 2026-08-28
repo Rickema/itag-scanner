@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:background="#FFFFFF"
+    android:layout_marginBottom="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/nameText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Nome Dispositivo"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#212121" />
+
+        <TextView
+            android:id="@+id/technologyBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="BLE"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/techDetail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tipo: BLE"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="#424242"
+        android:layout_marginTop="2dp" />
+
+    <TextView
+        android:id="@+id/typeText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Classificazione: N/D"
+        android:textSize="12sp"
+        android:textColor="#616161" />
+
+    <TextView
+        android:id="@+id/appearanceText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Aspetto: N/D"
+        android:textSize="12sp"
+        android:textColor="#616161" />
+
+    <TextView
+        android:id="@+id/manufacturerText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Produttore: N/D"
+        android:textSize="12sp"
+        android:textColor="#616161" />
+
+    <TextView
+        android:id="@+id/uuidText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Servizi: N/D"
+        android:textSize="12sp"
+        android:textColor="#616161" />
+
+    <TextView
+        android:id="@+id/modelIdText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Model ID: N/D"
+        android:textSize="12sp"
+        android:textColor="#1976D2"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="6dp">
+
+        <TextView
+            android:id="@+id/rssiText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="RSSI: -65 dBm | MAC: AA:BB:CC:DD:EE:FF"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:textColor="#757575" />
+
+        <Button
+            android:id="@+id/selectButton"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="Imposta Target"
+            android:textSize="11sp"
+            android:backgroundTint="#3F51B5"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+</LinearLayout>

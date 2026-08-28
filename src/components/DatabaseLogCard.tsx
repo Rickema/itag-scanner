@@ -11,21 +11,20 @@ export const DatabaseLogCard: React.FC<DatabaseLogCardProps> = ({
   onRefreshDatabase,
   isRefreshing = false,
 }) => {
-  // L'utente vuole poter ridurre o espandere la sezione al click del nome
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   return (
-    <div className="border border-gray-300 rounded bg-[#F8F9FA] shadow-xs overflow-hidden">
+    <div className="border border-gray-200 rounded-xl bg-white shadow-xs overflow-hidden">
       {/* Header cliccabile per ridurre o espandere */}
       <div
         id="databaseLogHeader"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 cursor-pointer flex items-center justify-between transition-colors select-none"
+        className="px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100/80 cursor-pointer flex items-center justify-between transition-colors select-none gap-2"
         title="Fai clic per espandere o comprimere i dettagli del database Bluetooth SIG"
       >
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 min-w-0">
           <svg
-            className={`w-4 h-4 text-gray-600 transform transition-transform duration-200 ${
+            className={`w-4 h-4 text-gray-500 shrink-0 transform transition-transform duration-200 ${
               isExpanded ? 'rotate-180' : 'rotate-0'
             }`}
             fill="none"
@@ -34,14 +33,14 @@ export const DatabaseLogCard: React.FC<DatabaseLogCardProps> = ({
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
-          <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">
-            Log Database Bluetooth SIG & Diagnostica
+          <span className="text-xs font-bold text-gray-800 uppercase tracking-wide truncate">
+            Database Bluetooth SIG & Diagnostica
           </span>
         </div>
 
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <span className="text-[10px] text-gray-500 hidden sm:inline">
-            {isExpanded ? "Fai clic sul nome per comprimere" : "Fai clic sul nome per espandere"}
+        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <span className="text-[10px] text-gray-400 hidden md:inline">
+            {isExpanded ? "Fai clic per comprimere" : "Fai clic per espandere"}
           </span>
 
           <button
@@ -49,7 +48,7 @@ export const DatabaseLogCard: React.FC<DatabaseLogCardProps> = ({
             type="button"
             disabled={isRefreshing}
             onClick={onRefreshDatabase}
-            className="text-[10px] uppercase font-bold bg-white hover:bg-gray-50 text-indigo-700 px-2.5 py-1 rounded border border-indigo-200 shadow-xs flex items-center gap-1 transition"
+            className="text-[10px] uppercase font-bold bg-white hover:bg-gray-50 text-indigo-700 px-2.5 py-1 rounded-md border border-indigo-200 shadow-2xs flex items-center gap-1 transition"
             title="Forza l'aggiornamento dei file YAML da Bitbucket"
           >
             <svg
@@ -67,16 +66,29 @@ export const DatabaseLogCard: React.FC<DatabaseLogCardProps> = ({
 
       {/* Contenuto espandibile */}
       {isExpanded && (
-        <div className="p-3 border-t border-gray-200 space-y-2">
-          <div className="flex items-center justify-between text-[11px] text-gray-600 pb-1 border-b border-gray-200">
+        <div className="p-3.5 border-t border-gray-200 space-y-2.5 bg-[#F8F9FA]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-gray-600 pb-1.5 border-b border-gray-200 gap-1">
             <span>Sorgente: <strong>Bitbucket Bluetooth SIG (assigned_numbers)</strong></span>
-            <span className="text-green-700 font-semibold">Cache attiva (30 giorni)</span>
+            <span className="text-green-700 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
+              Cache attiva locale (30 giorni)
+            </span>
           </div>
 
-          <div className="max-h-36 overflow-y-auto bg-gray-900 text-gray-200 p-2.5 rounded font-mono text-[11px] leading-relaxed select-text">
-            <pre id="debugText" className="whitespace-pre-wrap">
-              {debugText}
-            </pre>
+          <div className="text-[11px] text-gray-500">
+            I file YAML (numeri assegnati da Bluetooth SIG per Company Identifiers e Appearance) vengono scaricati e analizzati per riconoscere i costruttori Bluetooth.
+          </div>
+
+          <div className="mt-1">
+            <span className="text-[10px] font-bold uppercase text-gray-400 block mb-1">
+              Log di caricamento in tempo reale:
+            </span>
+            <div
+              id="debugLogConsole"
+              className="font-mono text-[10px] bg-slate-900 text-green-400 p-2.5 rounded-lg h-28 overflow-y-auto whitespace-pre-wrap leading-relaxed shadow-inner"
+            >
+              {debugText || "Nessun evento registrato finora..."}
+            </div>
           </div>
         </div>
       )}
