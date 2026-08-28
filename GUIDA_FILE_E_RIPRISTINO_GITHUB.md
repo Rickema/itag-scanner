@@ -102,3 +102,13 @@ Quando apri per la prima volta la scheda **"Actions"** su una repository GitHub,
 2. Estrai lo ZIP e aprilo in Android Studio (**File > Open**).
 3. Seleziona **Build > Build Bundle(s) / APK(s) > Build APK(s)**: troverai l'APK in `app/build/outputs/apk/debug/app-debug.apk`.
 
+---
+
+## 5. ✅ Risoluzione Errore Build AndroidX (checkDebugAarMetadata)
+L'errore `android.useAndroidX property is not enabled` è stato risolto con l'inclusione dei file `gradle.properties` (nella cartella principale e in `app/`):
+```properties
+android.useAndroidX=true
+android.enableJetifier=true
+```
+Invia le modifiche a GitHub (Push / Export) e rilancia il workflow per completare la compilazione con esito positivo.
+

@@ -30,7 +30,7 @@ jobs:
 
       - name: Compila APK di debug
         run: |
-          gradle -p app assembleDebug --stacktrace || gradle :app:assembleDebug --stacktrace
+          gradle :app:assembleDebug --stacktrace || gradle -p app assembleDebug --stacktrace
 
       - name: Carica APK come artefatto scaricabile
         uses: actions/upload-artifact@v4
