@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { SavedTargetDevice, TrackingSettings, TrackingCycleState } from '../types';
+import { SavedTargetDevice, TrackingSettings, TrackingCycleState, TargetArchiveItem } from '../types';
 import { Constants } from '../constants';
 
 interface DeviceManagerViewProps {
   target: SavedTargetDevice;
+  archive: TargetArchiveItem[];
   settings: TrackingSettings;
   cycleState: TrackingCycleState;
   onBack: () => void;
   onClearTarget: () => void;
+  onSelectArchiveTarget: (mac: string) => void;
+  onRemoveFromArchive: (mac: string) => void;
   onUpdateSettings: (newSettings: Partial<TrackingSettings>) => void;
   onRenameTarget: () => void;
   onTestIntent: (action: 'ACTION_NEAR' | 'ACTION_FAR') => void;
@@ -16,10 +19,13 @@ interface DeviceManagerViewProps {
 
 export const DeviceManagerView: React.FC<DeviceManagerViewProps> = ({
   target,
+  archive = [],
   settings,
   cycleState,
   onBack,
   onClearTarget,
+  onSelectArchiveTarget,
+  onRemoveFromArchive,
   onUpdateSettings,
   onRenameTarget,
   onTestIntent,
@@ -280,6 +286,112 @@ export const DeviceManagerView: React.FC<DeviceManagerViewProps> = ({
               </button>
             </div>
           )}
+
+          {/* SEZIONE ARCHIVIO DISPOSITIVI TARGET MEMORIZZATI */}
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-[#3F51B5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                <h3 className="text-sm font-bold text-gray-900">
+                  Archivio Target Memorizzati
+                </h3>
+              </div>
+              <span className="text-xs font-semibold px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">
+                {archive.length} salvati
+              </span>
+            </div>
+
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Storico di tutti i dispositivi già utilizzati come target. Puoi attivarne uno al volo oppure rimuoverlo dall'archivio.
+            </p>
+
+            {archive.length > 0 ? (
+              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-0.5">
+                {archive.map((item) => {
+                  const isCurrentTarget = target.isSet && target.mac?.toUpperCase() === item.address.toUpperCase();
+                  const itemBle = item.type === "BLE";
+                  const itemDisplayName = item.customName || item.name || "Sconosciuto";
+
+                  return (
+                    <div
+                      key={item.address}
+                      className={`p-3 rounded-lg border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                        isCurrentTarget
+                          ? 'bg-indigo-50/70 border-indigo-300 ring-1 ring-indigo-300'
+                          : 'bg-gray-50/70 border-gray-200 hover:bg-gray-100/80'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm text-gray-900 truncate">
+                            {itemDisplayName}
+                          </span>
+                          {itemBle && (
+                            <span className="bg-indigo-50 border border-indigo-200 text-[#1E3A8A] text-[10px] font-extrabold px-1.5 py-0.5 rounded tracking-wider shadow-2xs">
+                              BLE
+                            </span>
+                          )}
+                          {isCurrentTarget && (
+                            <span className="text-[10px] uppercase font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded shadow-2xs">
+                              ATTIVO ORA
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs font-mono text-gray-500 mt-1">
+                          <span className="font-semibold text-gray-700">{item.address}</span>
+                          {item.manufacturer && item.manufacturer !== "N/D" && (
+                            <>
+                              <span>•</span>
+                              <span className="font-sans text-gray-600 truncate">{item.manufacturer}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                        {isCurrentTarget ? (
+                          <button
+                            type="button"
+                            onClick={onClearTarget}
+                            className="text-xs px-2.5 py-1.5 font-bold rounded-lg transition-colors bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 uppercase tracking-wide flex items-center gap-1"
+                          >
+                            <span>DISSOCIA</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onSelectArchiveTarget(item.address)}
+                            className="text-xs px-3 py-1.5 font-bold rounded-lg transition-colors bg-[#3F51B5] hover:bg-[#303F9F] text-white uppercase tracking-wide shadow-2xs flex items-center gap-1"
+                          >
+                            <span>ATTIVA TARGET</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => onRemoveFromArchive(item.address)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors"
+                          title="Elimina dall'archivio storico"
+                          aria-label="Elimina dall'archivio"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500">
+                Nessun target salvato nell'archivio. Seleziona un dispositivo dalla scansione per aggiungerlo automaticamente.
+              </div>
+            )}
+          </div>
         </div>
       )}
 

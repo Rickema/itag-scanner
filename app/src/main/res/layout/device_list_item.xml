@@ -48,7 +48,7 @@
                 android:paddingTop="2dp"
                 android:paddingBottom="2dp"
                 android:background="@drawable/bg_badge_ble"
-                android:textColor="#FFFFFF"
+                android:textColor="#1E3A8A"
                 android:layout_marginEnd="6dp" />
 
             <!-- Pulsante Target Diretto -->

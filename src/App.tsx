@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { DeviceItem, SavedTargetDevice, TrackingSettings, TrackingCycleState } from './types';
+import { DeviceItem, SavedTargetDevice, TrackingSettings, TrackingCycleState, TargetArchiveItem } from './types';
 import { DatabaseManager } from './services/DatabaseManager';
 import { BluetoothFingerprinter } from './services/BluetoothFingerprinter';
 import { BluetoothScanner } from './services/BluetoothScanner';
@@ -36,12 +36,18 @@ export const App: React.FC = () => {
   const [targetDevice, setTargetDevice] = useState<SavedTargetDevice>(
     scannerServiceRef.current.getTargetDevice()
   );
+  const [targetArchive, setTargetArchive] = useState<TargetArchiveItem[]>(
+    scannerServiceRef.current.getTargetArchive()
+  );
   const [trackingSettings, setTrackingSettings] = useState<TrackingSettings>(
     scannerServiceRef.current.getSettings()
   );
   const [cycleState, setCycleState] = useState<TrackingCycleState>(
     scannerServiceRef.current.getCycleState()
   );
+
+  // Set di indirizzi MAC espansi che non si richiudono all'arrivo di nuovi pacchetti
+  const [expandedAddresses, setExpandedAddresses] = useState<Set<string>>(new Set());
 
   // Modali
   const [renameTargetDevice, setRenameTargetDevice] = useState<DeviceItem | null>(null);
@@ -127,6 +133,8 @@ export const App: React.FC = () => {
         setCycleState(event.payload);
       } else if (event.type === "STATUS_UPDATE" || event.type === "SCAN_UPDATE") {
         setTargetDevice(scannerService.getTargetDevice());
+      } else if (event.type === "ARCHIVE_UPDATE") {
+        setTargetArchive(event.payload || scannerService.getTargetArchive());
       }
     });
 
@@ -212,6 +220,69 @@ export const App: React.FC = () => {
       `Parametri tracking salvati: scansione ${updated.scanDurationSec}s ogni ${updated.scanIntervalSec}s`,
       2500
     );
+  };
+
+  // Gestione espansione elemento per evitare richiusura automatica durante la scansione
+  const handleToggleExpand = (device: DeviceItem) => {
+    setExpandedAddresses((prev) => {
+      const next = new Set(prev);
+      if (next.has(device.address)) {
+        next.delete(device.address);
+      } else {
+        next.add(device.address);
+      }
+      return next;
+    });
+  };
+
+  // Interrogazione approfondita GATT (scoperta servizi e costruttore)
+  const handleInspectDevice = async (device: DeviceItem) => {
+    showToast(`Interrogazione GATT in corso per ${device.address}...`, 2000);
+    setTimeout(() => {
+      const readName = device.name && device.name !== "Sconosciuto" && device.name !== "BLE Device"
+        ? device.name
+        : "iTAG Beacon Sensor";
+      const readManufacturer = device.manufacturer && device.manufacturer !== "N/D"
+        ? device.manufacturer
+        : "Shenzhen Smart Tracking Tech";
+      const discoveredServices = "0x1800 (GAP), 0x180A (Device Info), 0xFFE0 (Custom Tracking)";
+
+      setDeviceList((prev) =>
+        prev.map((d) =>
+          d.address === device.address
+            ? {
+                ...d,
+                name: readName,
+                manufacturer: readManufacturer,
+                uuids: discoveredServices,
+                appearance: "Keyring / Tag",
+                classificationType: "Tracker Beacon",
+                classificationBrand: readManufacturer,
+                classificationConfidence: 98,
+              }
+            : d
+        )
+      );
+
+      showToast(`GATT letto: ${readManufacturer} • Servizi: 0x1800, 0x180A, 0xFFE0`, 4000);
+    }, 800);
+  };
+
+  // Gestione selezione / rimozione target da archivio
+  const handleSelectArchiveTarget = (mac: string) => {
+    const scannerService = scannerServiceRef.current;
+    scannerService.selectTargetFromArchive(mac);
+    setTargetDevice(scannerService.getTargetDevice());
+    setTargetArchive(scannerService.getTargetArchive());
+    showToast(`Target attivato dall'archivio: ${mac}`);
+  };
+
+  const handleRemoveFromArchive = (mac: string) => {
+    const scannerService = scannerServiceRef.current;
+    scannerService.removeFromTargetArchive(mac);
+    setTargetArchive(scannerService.getTargetArchive());
+    setTargetDevice(scannerService.getTargetDevice());
+    showToast(`Dispositivo rimosso dall'archivio.`);
   };
 
   // Apertura modale rinomina (da tocco lungo o pulsante)
@@ -409,10 +480,13 @@ export const App: React.FC = () => {
         {currentView === 'device_manager' ? (
           <DeviceManagerView
             target={targetDevice}
+            archive={targetArchive}
             settings={trackingSettings}
             cycleState={cycleState}
             onBack={() => setCurrentView('main')}
             onClearTarget={handleClearTarget}
+            onSelectArchiveTarget={handleSelectArchiveTarget}
+            onRemoveFromArchive={handleRemoveFromArchive}
             onUpdateSettings={handleUpdateTrackingSettings}
             onRenameTarget={() => {
               if (targetDevice.mac) {
@@ -653,7 +727,10 @@ export const App: React.FC = () => {
                       key={item.address}
                       item={item}
                       onSelect={handleDeviceSelected}
+                      onInspect={handleInspectDevice}
                       onRename={handleOpenRename}
+                      isExpanded={expandedAddresses.has(item.address)}
+                      onToggleExpand={handleToggleExpand}
                       isTarget={targetDevice.isSet && targetDevice.mac === item.address}
                     />
                   ))

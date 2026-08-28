@@ -1,8 +1,8 @@
 import { Constants } from '../constants';
-import { DeviceItem, SavedTargetDevice, TrackingSettings, TrackingCycleState } from '../types';
+import { DeviceItem, SavedTargetDevice, TrackingSettings, TrackingCycleState, TargetArchiveItem } from '../types';
 
 export type ScannerServiceListener = (event: {
-  type: "SCAN_UPDATE" | "STATUS_UPDATE" | "CYCLE_UPDATE" | "ACTION_NEAR" | "ACTION_FAR";
+  type: "SCAN_UPDATE" | "STATUS_UPDATE" | "CYCLE_UPDATE" | "ACTION_NEAR" | "ACTION_FAR" | "ARCHIVE_UPDATE";
   payload?: any;
 }) => void;
 
@@ -172,9 +172,9 @@ export class ScannerService {
 
     try {
       localStorage.setItem("target_mac", item.address);
-      localStorage.setItem("target_name", item.name);
+      localStorage.setItem("target_name", item.name || "");
       localStorage.setItem("target_custom_name", this.targetCustomName || "");
-      localStorage.setItem("target_uuid", item.uuids);
+      localStorage.setItem("target_uuid", item.uuids || "");
       localStorage.setItem("target_type", item.type);
       localStorage.setItem("target_set", "true");
       localStorage.setItem("target_last_seen", this.lastSeenTimestamp.toString());
@@ -182,7 +182,89 @@ export class ScannerService {
       console.warn("Could not save to localStorage", e);
     }
 
+    // Aggiungi all'archivio dei dispositivi target
+    this.addToTargetArchive({
+      address: item.address,
+      name: item.name,
+      customName: this.targetCustomName,
+      type: item.type,
+      category: item.classificationType || item.category,
+      manufacturer: item.manufacturer,
+      addedAt: Date.now()
+    });
+
     this.startTracking();
+  }
+
+  // --- Gestione Archivio Dispositivi Target ---
+  getTargetArchive(): TargetArchiveItem[] {
+    try {
+      const data = localStorage.getItem("bt_target_archive");
+      if (data) {
+        return JSON.parse(data);
+      }
+    } catch (e) {
+      console.warn("Could not load target archive", e);
+    }
+    return [];
+  }
+
+  addToTargetArchive(item: TargetArchiveItem) {
+    try {
+      const current = this.getTargetArchive();
+      const index = current.findIndex(t => t.address.toUpperCase() === item.address.toUpperCase());
+      if (index >= 0) {
+        current[index] = {
+          ...current[index],
+          ...item,
+          addedAt: Date.now()
+        };
+      } else {
+        current.unshift(item);
+      }
+      localStorage.setItem("bt_target_archive", JSON.stringify(current));
+      this.emit({ type: "ARCHIVE_UPDATE", payload: current });
+    } catch (e) {
+      console.warn("Could not add to target archive", e);
+    }
+  }
+
+  removeFromTargetArchive(mac: string) {
+    try {
+      const current = this.getTargetArchive().filter(t => t.address.toUpperCase() !== mac.toUpperCase());
+      localStorage.setItem("bt_target_archive", JSON.stringify(current));
+      
+      // Se era il target attivo, dissocialo
+      if (this.targetMac && this.targetMac.toUpperCase() === mac.toUpperCase()) {
+        this.clearTargetDevice();
+      } else {
+        this.emit({ type: "ARCHIVE_UPDATE", payload: current });
+      }
+    } catch (e) {
+      console.warn("Could not remove from target archive", e);
+    }
+  }
+
+  selectTargetFromArchive(mac: string) {
+    const archive = this.getTargetArchive();
+    const found = archive.find(t => t.address.toUpperCase() === mac.toUpperCase());
+    if (found) {
+      this.setTargetDevice({
+        address: found.address,
+        name: found.name || "Target",
+        customName: found.customName || undefined,
+        type: found.type,
+        rssi: -70,
+        category: found.category || "Dispositivo",
+        uuids: "Archivio Target",
+        manufacturer: found.manufacturer || "N/D",
+        appearance: "",
+        modelId: "",
+        classificationType: found.category || "Dispositivo",
+        classificationBrand: found.manufacturer || "N/D",
+        classificationConfidence: 95
+      });
+    }
   }
 
   clearTargetDevice() {
@@ -402,10 +484,7 @@ export class ScannerService {
     return () => this.listeners.delete(listener);
   }
 
-  private emit(event: {
-    type: "SCAN_UPDATE" | "STATUS_UPDATE" | "CYCLE_UPDATE" | "ACTION_NEAR" | "ACTION_FAR";
-    payload?: any;
-  }) {
+  private emit(event: Parameters<ScannerServiceListener>[0]) {
     this.listeners.forEach((listener) => {
       try {
         listener(event);

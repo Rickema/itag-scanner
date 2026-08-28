@@ -7,6 +7,8 @@ interface DeviceListItemProps {
   onInspect?: (item: DeviceItem) => void;
   onRename: (item: DeviceItem) => void;
   isTarget?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: (item: DeviceItem) => void;
 }
 
 export const DeviceListItem: React.FC<DeviceListItemProps> = ({
@@ -15,9 +17,20 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
   onInspect,
   onRename,
   isTarget = false,
+  isExpanded: controlledExpanded,
+  onToggleExpand,
 }) => {
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [internalExpanded, setInternalExpanded] = useState<boolean>(false);
+  const isExpanded = controlledExpanded !== undefined ? controlledExpanded : internalExpanded;
+
+  const handleToggle = () => {
+    if (onToggleExpand) {
+      onToggleExpand(item);
+    } else {
+      setInternalExpanded(!internalExpanded);
+    }
+  };
 
   const handleTouchStart = () => {
     longPressTimerRef.current = setTimeout(() => {
@@ -71,7 +84,7 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
       onTouchEnd={handleTouchEnd}
       onMouseDown={handleTouchStart}
       onMouseUp={handleTouchEnd}
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={handleToggle}
       className={`p-3.5 sm:p-4 border-b border-gray-200 transition-all cursor-pointer select-none ${
         isTarget
           ? 'bg-indigo-50/80 border-l-4 border-l-[#3F51B5]'
@@ -99,11 +112,11 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
                 )}
               </span>
 
-              {/* Tag SINTETICO solo per BLE (Nessun tag per Classico) */}
+              {/* Tag SINTETICO solo per BLE (Testo blu scuro ad alto contrasto) */}
               {isBle && (
                 <span
                   id="technologyBadge"
-                  className="bg-blue-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0"
+                  className="bg-indigo-50 border border-indigo-200 text-[#1E3A8A] text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 shadow-2xs"
                 >
                   BLE
                 </span>
@@ -111,7 +124,7 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
 
               {isTarget && (
                 <span className="text-[10px] uppercase font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded shrink-0">
-                  TARGET ATTIVO
+                  TARGET
                 </span>
               )}
             </div>
@@ -141,9 +154,9 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
                   : 'bg-[#3F51B5] hover:bg-[#303F9F] text-white'
               }`}
             >
-              {isTarget ? 'TARGET' : 'TARGET'}
+              TARGET
             </button>
-            <span className="text-gray-400 text-xs pl-1">
+            <span className="text-gray-400 text-xs pl-1 font-mono">
               {isExpanded ? '▲' : '▼'}
             </span>
           </div>

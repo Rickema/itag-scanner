@@ -19,6 +19,20 @@ class DeviceListAdapter(
     private val onRenameClick: (DeviceItem) -> Unit
 ) : BaseAdapter() {
 
+    // Set persistente degli indirizzi MAC espansi per evitare richiusura al refresh della scansione
+    private val expandedAddresses = mutableSetOf<String>()
+
+    fun isAddressExpanded(mac: String): Boolean = expandedAddresses.contains(mac)
+
+    fun toggleExpand(mac: String) {
+        if (expandedAddresses.contains(mac)) {
+            expandedAddresses.remove(mac)
+        } else {
+            expandedAddresses.add(mac)
+        }
+        notifyDataSetChanged()
+    }
+
     override fun getCount(): Int = items.size
 
     override fun getItem(position: Int): DeviceItem = items[position]
@@ -91,8 +105,9 @@ class DeviceListAdapter(
             selectButton.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#3F51B5"))
         }
 
-        // 5. Gestione Espansione al Tocco
-        if (item.isExpanded) {
+        // 5. Gestione Espansione al Tocco (con set persistente)
+        val isExpanded = isAddressExpanded(item.address) || item.isExpanded
+        if (isExpanded) {
             expandedDetailContainer.visibility = View.VISIBLE
             expandArrow.text = "▲"
 
@@ -119,8 +134,8 @@ class DeviceListAdapter(
 
         // Event Listener per Espansione al Tocco della Scheda
         view.setOnClickListener {
-            item.isExpanded = !item.isExpanded
-            notifyDataSetChanged()
+            toggleExpand(item.address)
+            item.isExpanded = isAddressExpanded(item.address)
         }
 
         selectButton.setOnClickListener {

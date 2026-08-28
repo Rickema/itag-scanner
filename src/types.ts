@@ -25,6 +25,16 @@ export interface Classification {
   confidence: number; // 0..100
 }
 
+export interface TargetArchiveItem {
+  address: string;
+  name: string | null;
+  customName?: string | null;
+  type: "BLE" | "Classic";
+  category?: string;
+  manufacturer?: string;
+  addedAt: number;
+}
+
 export interface SavedTargetDevice {
   name: string | null;
   customName?: string | null;
