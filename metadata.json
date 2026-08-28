@@ -1,0 +1,6 @@
+{
+  "name": "BT Scan and Track",
+  "description": "App Android e Web per scansione Bluetooth BLE e Classico, fingerprinting con banche dati Bluetooth SIG, rinomina dispositivi personalizzata, monitoraggio tracking con cicli configurabili e integrazione MacroDroid.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
