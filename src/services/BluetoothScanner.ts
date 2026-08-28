@@ -221,6 +221,9 @@ export class BluetoothScanner {
     const customName = ScannerService.getInstance().getCustomName(raw.address) || undefined;
 
     if (raw.type === "Classic") {
+      const isAudio = (raw.classicCategory || "").toLowerCase().includes("audio") || (raw.classicCategory || "").toLowerCase().includes("soundbar");
+      const isPc = (raw.classicCategory || "").toLowerCase().includes("computer");
+      const iconEmoji = isAudio ? "🎧" : (isPc ? "💻" : "📻");
       return {
         name: raw.name,
         customName,
@@ -228,13 +231,14 @@ export class BluetoothScanner {
         rssi: rssi,
         type: "Classic",
         category: raw.classicCategory || "Altro",
-        uuids: "N/D",
-        manufacturer: "Dispositivo Standard",
-        appearance: "N/D",
+        uuids: "Profilo BR/EDR Standard",
+        manufacturer: "Standard Bluetooth",
+        appearance: "BR/EDR",
         modelId: "N/D",
         classificationType: raw.classicCategory || "Bluetooth Classico",
-        classificationBrand: "Sconosciuto",
-        classificationConfidence: 60,
+        classificationBrand: "Standard Bluetooth",
+        classificationConfidence: 85,
+        iconEmoji,
       };
     }
 
@@ -251,7 +255,7 @@ export class BluetoothScanner {
       serviceData: raw.serviceData,
     };
 
-    const classification = this.fingerprinter.classify(scanRecord);
+    const classification = this.fingerprinter.classify(scanRecord, raw.name);
 
     // Format UUIDs with SIG names
     const uuidsStr =
@@ -290,6 +294,7 @@ export class BluetoothScanner {
       classificationType: classification.type,
       classificationBrand: classification.brand,
       classificationConfidence: classification.confidence,
+      iconEmoji: classification.iconEmoji,
     };
   }
 }

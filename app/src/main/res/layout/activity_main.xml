@@ -1,131 +1,92 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp"
-    android:background="#F5F5F5">
+    android:background="@color/page_background">
 
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Stato: Pronto alla scansione"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:textColor="#333333"
-        android:layout_marginBottom="8dp" />
-
+    <!-- Top App Bar in stile moderno Indigo -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:weightSum="3"
-        android:layout_marginBottom="8dp">
+        android:background="@color/primary_indigo"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:gravity="center_vertical">
 
-        <Button
-            android:id="@+id/startButton"
+        <!-- Icona Bluetooth in riquadro stondato -->
+        <FrameLayout
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_chip_selected"
+            android:backgroundTint="#303F9F">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="ᛒ"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+        </FrameLayout>
+
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Avvia Scan"
-            android:backgroundTint="#3F51B5"
-            android:textColor="#FFFFFF" />
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
 
-        <Button
-            android:id="@+id/stopButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Ferma"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:backgroundTint="#757575"
-            android:textColor="#FFFFFF" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="BT Scan and Track"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/manageButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Gestione"
-            android:backgroundTint="#00897B"
-            android:textColor="#FFFFFF" />
-    </LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Beacon BLE &amp; Classic Monitor"
+                android:textColor="#C5CAE9"
+                android:textSize="12sp" />
+        </LinearLayout>
 
-    <CheckBox
-        android:id="@+id/includeClassicCheckBox"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Includi Bluetooth Classico nella ricerca dispositivi"
-        android:checked="true"
-        android:textSize="13sp"
-        android:layout_marginBottom="6dp" />
-
-    <TextView
-        android:id="@+id/rssiValueText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Soglia minima RSSI: -100 dBm"
-        android:textSize="12sp"
-        android:textColor="#666666" />
-
-    <SeekBar
-        android:id="@+id/rssiSeekBar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:max="80"
-        android:progress="0"
-        android:layout_marginBottom="8dp" />
-
-    <!-- Scheda Log Database espandibile/riducibile al click -->
-    <LinearLayout
-        android:id="@+id/databaseLogHeader"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="#E8EAF6"
-        android:padding="8dp"
-        android:clickable="true"
-        android:focusable="true">
-
+        <!-- Indicatore stato o icona rapida -->
         <TextView
-            android:layout_width="0dp"
+            android:id="@+id/appBarBadge"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="📁 LOG DATABASE SIG (Tocca per ridurre/espandere)"
+            android:text="PRO"
             android:textStyle="bold"
-            android:textSize="12sp"
-            android:textColor="#3F51B5" />
+            android:textSize="10sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_chip_selected"
+            android:backgroundTint="#283593"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/debugText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#212121"
-        android:textColor="#81C784"
-        android:fontFamily="monospace"
-        android:textSize="11sp"
-        android:padding="8dp"
-        android:visibility="gone"
-        android:text="Caricamento database..." />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Dispositivi Rilevati (Tieni premuto per rinominare):"
-        android:textStyle="bold"
-        android:textSize="13sp"
-        android:layout_marginTop="10dp"
-        android:layout_marginBottom="4dp" />
-
+    <!-- ListView che contiene tutte le card di controllo come HeaderView, garantendo uno scroll uniforme e naturale -->
     <ListView
         android:id="@+id/deviceListView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:divider="#E0E0E0"
-        android:dividerHeight="1dp" />
+        android:divider="@null"
+        android:dividerHeight="10dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="20dp"
+        android:clipToPadding="false"
+        android:scrollbarStyle="outsideOverlay" />
 
 </LinearLayout>

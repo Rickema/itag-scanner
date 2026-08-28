@@ -2,8 +2,33 @@
 <resources>
     <color name="colorPrimary">#3F51B5</color>
     <color name="colorPrimaryDark">#303F9F</color>
-    <color name="colorAccent">#FF4081</color>
-    <color name="bleBlue">#1976D2</color>
-    <color name="classicOrange">#F57C00</color>
-    <color name="backgroundGrey">#F5F5F5</color>
+    <color name="colorAccent">#3F51B5</color>
+    <color name="primary_indigo">#3F51B5</color>
+    <color name="dark_indigo">#303F9F</color>
+    <color name="light_indigo">#E8EAF6</color>
+    <color name="page_background">#F1F5F9</color>
+    <color name="card_background">#FFFFFF</color>
+    <color name="card_stroke">#E2E8F0</color>
+    <color name="text_primary">#0F172A</color>
+    <color name="text_secondary">#64748B</color>
+    <color name="text_muted">#94A3B8</color>
+    
+    <color name="ble_badge_bg">#EFF6FF</color>
+    <color name="ble_badge_text">#1D4ED8</color>
+    <color name="ble_badge_stroke">#BFDBFE</color>
+    
+    <color name="classic_badge_bg">#FFFBEB</color>
+    <color name="classic_badge_text">#B45309</color>
+    <color name="classic_badge_stroke">#FDE68A</color>
+    
+    <color name="btn_stop_bg">#64748B</color>
+    <color name="target_active_green">#10B981</color>
+    <color name="target_badge_bg">#ECFDF5</color>
+    
+    <color name="chip_normal_bg">#F8FAFC</color>
+    <color name="chip_normal_stroke">#E2E8F0</color>
+    <color name="chip_selected_bg">#EEF2FF</color>
+    <color name="chip_selected_stroke">#3F51B5</color>
+    <color name="chip_selected_text">#3F51B5</color>
 </resources>
+

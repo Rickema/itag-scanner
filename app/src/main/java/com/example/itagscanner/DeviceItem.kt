@@ -16,5 +16,6 @@ data class DeviceItem(
     val classificationType: String = "BLE",
     val classificationBrand: String = "Sconosciuto",
     val classificationConfidence: Int = 50,
+    val iconEmoji: String = "📡",
     val bluetoothDevice: BluetoothDevice? = null
 )

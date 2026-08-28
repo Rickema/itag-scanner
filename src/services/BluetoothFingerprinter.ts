@@ -4,23 +4,29 @@ import { DatabaseManager } from './DatabaseManager';
 export class BluetoothFingerprinter {
   static readonly APPLE_ID = 0x004c;
   static readonly SAMSUNG_ID = 0x0075;
-  static readonly GOOGLE_ID = 0x001d;
+  static readonly GOOGLE_ID = 0x00e0;
   static readonly MICROSOFT_ID = 0x0006;
   static readonly TILE_ID = 0x0131;
   static readonly NORDIC_ID = 0x0059;
   static readonly AMAZON_ID = 0x0157;
+  static readonly ETEKCITY_ID = 0x07f6;
+  static readonly ESPRESSIF_ID = 0x02e5;
+  static readonly LENZE_ID = 0x02ff;
 
   constructor(private db: DatabaseManager) {}
 
-  classify(scanRecord?: ScanRecordRaw | null): Classification {
+  classify(scanRecord?: ScanRecordRaw | null, deviceName?: string | null): Classification {
     let score = 0;
-    let type = "Sconosciuto";
+    let type = "Dispositivo Sconosciuto";
     let brand = "Sconosciuto";
     let model = "N/D";
+    let iconEmoji = "❓";
 
     if (!scanRecord) {
-      return { type, brand, model, confidence: 0 };
+      return { type, brand, model, confidence: 20 };
     }
+
+    const lowerName = (deviceName || "").toLowerCase();
 
     // 1. Estrai Manufacturer ID e nome produttore
     let companyId: number | null = null;
@@ -46,92 +52,125 @@ export class BluetoothFingerprinter {
         ? this.db.getAppearanceName(appearanceValue)?.[0] || "N/D"
         : "N/D";
 
-    // 4. Regole di classificazione
-    // 4a. Tracker generici: UUID FFE0 o manufacturer sconosciuto ma con UUID simile
-    if (
-      serviceUuids.some(
-        (u) =>
-          u === "0000ffe0-0000-1000-8000-00805f9b34fb" ||
-          u === "ffe0" ||
-          u.includes("ffe0")
-      )
-    ) {
-      type = "Tracker";
-      score += 30;
-    }
+    // 4. Regole di Classificazione Dettagliata
 
-    // 4b. Dispositivi audio: appearance o UUID audio
-    const audioUuids = [
-      "0000110b-0000-1000-8000-00805f9b34fb", // A2DP Sink
-      "0000110e-0000-1000-8000-00805f9b34fb", // AVRCP
-      "0000111e-0000-1000-8000-00805f9b34fb", // HFP
-      "110b",
-      "110e",
-      "111e"
-    ];
+    // 4a. Tracker / Trova-oggetti / iTAG / AirTag / SmartTag / Tile
+    const isItagUuid = serviceUuids.some((u) =>
+      u.includes("1802") || u.includes("1803") || u.includes("ffe0") || u.includes("feed")
+    );
+    const isItagName = lowerName.includes("itag") || lowerName.includes("keyfinder") ||
+      lowerName.includes("anti-lost") || lowerName.includes("nut") ||
+      lowerName.includes("beacon") || lowerName.includes("tracker") ||
+      lowerName.includes("airtag") || lowerName.includes("smarttag") ||
+      lowerName.includes("tile");
 
-    if (appearanceValue !== null && appearanceValue >= 0x0080 && appearanceValue <= 0x00ff) {
-      type = "Audio";
-      score += 40;
-    } else if (
-      appearanceValue !== null &&
-      (appearanceValue === 0x0840 ||
-       appearanceValue === 0x0841 ||
-       appearanceValue === 0x0842 ||
-       appearanceValue === 0x0843 ||
-       appearanceValue === 0x0941)
-    ) {
-      type = "Audio";
-      score += 40;
-    } else if (serviceUuids.some((u) => audioUuids.includes(u))) {
-      type = "Audio";
-      score += 40;
-    }
-
-    // 4c. Apple specifico
-    if (companyId === BluetoothFingerprinter.APPLE_ID) {
-      brand = "Apple";
-      score += 10;
-      if (
-        serviceUuids.some(
-          (u) =>
-            u === "0000fe2c-0000-1000-8000-00805f9b34fb" ||
-            u === "fe2c" ||
-            u.includes("fe2c")
-        )
-      ) {
-        type = "Fast Pair device";
-        model = this.parseFastPairModelId(scanRecord);
-        score += 50;
+    if (isItagUuid || isItagName) {
+      type = "Tracker / Portachiavi (iTAG)";
+      iconEmoji = "🏷️";
+      score += 50;
+      if (companyId === BluetoothFingerprinter.APPLE_ID || lowerName.includes("airtag")) {
+        type = "Tracker (Apple AirTag / Dov'è)";
+        brand = "Apple, Inc.";
+        score += 30;
+      } else if (companyId === BluetoothFingerprinter.SAMSUNG_ID || lowerName.includes("smarttag")) {
+        type = "Tracker (Samsung SmartTag)";
+        brand = "Samsung Electronics";
+        score += 30;
+      } else if (companyId === BluetoothFingerprinter.TILE_ID || lowerName.includes("tile")) {
+        type = "Tracker (Tile)";
+        brand = "Tile, Inc.";
+        score += 30;
       }
     }
 
-    // 4d. Samsung specifico
-    if (companyId === BluetoothFingerprinter.SAMSUNG_ID) {
-      brand = "Samsung";
-      score += 10;
-      if (serviceUuids.some((u) => u.startsWith("0000fd") || u.startsWith("fd"))) {
-        type = "SmartTag/Find";
-        score += 40;
+    // 4b. Auricolari / Cuffie / Audio TWS
+    const isAudioUuid = serviceUuids.some((u) =>
+      u.includes("110b") || u.includes("110a") || u.includes("110c") ||
+      u.includes("111e") || u.includes("fe9f") || u.includes("fe2c") || u.includes("fd69")
+    );
+    const isAudioName = lowerName.includes("buds") || lowerName.includes("airpods") ||
+      lowerName.includes("headphones") || lowerName.includes("earphones") ||
+      lowerName.includes("headset") || lowerName.includes("soundcore") ||
+      lowerName.includes("jbl") || lowerName.includes("wh-") ||
+      lowerName.includes("wf-") || lowerName.includes("speaker") ||
+      lowerName.includes("cuffie") || lowerName.includes("auricolari");
+
+    if (isAudioUuid || isAudioName) {
+      type = "Auricolari / Cuffie (Audio TWS)";
+      iconEmoji = "🎧";
+      score += 45;
+      if (companyId === BluetoothFingerprinter.APPLE_ID || lowerName.includes("airpods")) {
+        type = "Auricolari Apple (AirPods)";
+        brand = "Apple, Inc.";
+        score += 25;
+      } else if (companyId === BluetoothFingerprinter.SAMSUNG_ID || lowerName.includes("galaxy buds")) {
+        type = "Auricolari (Samsung Galaxy Buds)";
+        brand = "Samsung Electronics";
+        score += 25;
       }
     }
 
-    // 4e. Tile tracker
-    if (companyId === BluetoothFingerprinter.TILE_ID) {
-      brand = "Tile";
-      type = "Tracker";
+    // 4c. Smartphone / Tablet
+    const isPhoneName = lowerName.includes("galaxy") || lowerName.includes("iphone") ||
+      lowerName.includes("ipad") || lowerName.includes("redmi") ||
+      lowerName.includes("xiaomi") || lowerName.includes("pixel") ||
+      lowerName.includes("oneplus") || lowerName.includes("huawei") ||
+      lowerName.includes("honor") || lowerName.includes("poco") ||
+      lowerName.includes("motorola");
+
+    if (type === "Dispositivo Sconosciuto" && isPhoneName) {
+      type = "Smartphone / Tablet";
+      iconEmoji = "📱";
+      score += 40;
+    }
+
+    // 4d. Computer / Notebook / PC
+    const isComputerName = lowerName.startsWith("desktop-") || lowerName.startsWith("laptop-") ||
+      lowerName.includes("macbook") || lowerName.includes("imac") ||
+      lowerName.includes("thinkpad") || lowerName.includes("notebook");
+
+    if (type === "Dispositivo Sconosciuto" && (companyId === BluetoothFingerprinter.MICROSOFT_ID || isComputerName)) {
+      type = "Computer / PC / Notebook";
+      iconEmoji = "💻";
+      score += 45;
+    }
+
+    // 4e. Smartwatch / Smartband
+    const isFitnessUuid = serviceUuids.some((u) =>
+      u.includes("180d") || u.includes("1814") || u.includes("1816") || u.includes("1826")
+    );
+    const isWatchName = lowerName.includes("watch") || lowerName.includes("band") ||
+      lowerName.includes("garmin") || lowerName.includes("amazfit") ||
+      lowerName.includes("fitbit") || lowerName.includes("polar");
+
+    if (type === "Dispositivo Sconosciuto" && (isFitnessUuid || isWatchName)) {
+      type = "Smartwatch / Smartband (Fitness)";
+      iconEmoji = "⌚";
+      score += 45;
+    }
+
+    // 4f. Smart Home / Bilance (es. Etekcity) / IoT
+    if (type === "Dispositivo Sconosciuto" && (companyId === BluetoothFingerprinter.ETEKCITY_ID || lowerName.startsWith("caf-") || lowerName.includes("etekcity"))) {
+      type = "Smart Home / Bilancia (Etekcity)";
+      brand = "Etekcity Corporation";
+      iconEmoji = "🏠";
+      score += 50;
+    } else if (type === "Dispositivo Sconosciuto" && (companyId === BluetoothFingerprinter.ESPRESSIF_ID || lowerName.includes("esp32"))) {
+      type = "Dispositivo IoT (ESP32)";
+      brand = "Espressif Systems";
+      iconEmoji = "🔌";
       score += 50;
     }
 
-    // 4f. Se appearance è nota, usala
-    if (appearanceName !== "N/D" && type === "Sconosciuto") {
-      type = appearanceName;
+    // 4g. Fallback se produttore noto
+    if (type === "Dispositivo Sconosciuto" && brand !== "Sconosciuto" && !brand.startsWith("0x")) {
+      type = `Dispositivo ${brand}`;
+      iconEmoji = "📡";
       score += 20;
     }
 
-    // Limita score a 100
-    const finalScore = Math.min(score, 100);
-    return { type, brand, model, confidence: finalScore };
+    const finalScore = Math.min(Math.max(score, 25), 98);
+    return { type, brand, model, confidence: finalScore, iconEmoji };
   }
 
   extractAppearance(scanRecord: ScanRecordRaw): number | null {
@@ -145,7 +184,6 @@ export class BluetoothFingerprinter {
       if (i + 1 >= bytes.length) break;
       const type = bytes[i + 1] & 0xff;
       if (type === 0x19) {
-        // GAP Appearance
         if (length >= 3 && i + 3 < bytes.length) {
           return (bytes[i + 2] & 0xff) | ((bytes[i + 3] & 0xff) << 8);
         }
@@ -159,7 +197,6 @@ export class BluetoothFingerprinter {
     const serviceData = scanRecord.serviceData;
     if (!serviceData) return "N/D";
 
-    // Lookup 0000fe2c-0000-1000-8000-00805f9b34fb or fe2c
     let data: number[] | Uint8Array | undefined;
     for (const [key, val] of Object.entries(serviceData)) {
       if (

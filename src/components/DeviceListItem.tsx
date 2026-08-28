@@ -33,6 +33,10 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
   const isBle = item.type === "BLE";
   const isSignalStrong = item.rssi >= -75;
 
+  const rawName = (item.name || "").trim();
+  const isGenericName = !rawName || rawName.toLowerCase() === "ble device" || rawName.toLowerCase() === "dispositivo classico" || rawName.toLowerCase() === "unknown";
+  const displayName = item.customName ? item.customName : (isGenericName ? "Sconosciuto" : rawName);
+
   return (
     <div
       id={`device-item-${item.address.replace(/[^a-zA-Z0-9]/g, '-')}`}
@@ -59,11 +63,11 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
                   <span>
                     {item.customName}
                     <span className="text-xs font-normal text-indigo-700 ml-1.5 font-sans">
-                      (orig: {item.name || "N/D"})
+                      (orig: {isGenericName ? "Sconosciuto" : rawName})
                     </span>
                   </span>
                 ) : (
-                  item.name || "Dispositivo Sconosciuto"
+                  displayName
                 )}
               </span>
 
@@ -88,6 +92,15 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
                   TARGET ATTIVO
                 </span>
               )}
+            </div>
+
+            {/* Tipologia Riconosciuta reale */}
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3F51B5] bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                <span>{item.iconEmoji || "🏷️"}</span>
+                <span>{item.classificationType}</span>
+                <span className="text-indigo-400 font-normal">({item.classificationConfidence}%)</span>
+              </span>
             </div>
 
             {/* Badge Tecnologia & Indirizzo MAC */}

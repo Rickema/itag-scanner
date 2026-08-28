@@ -12,6 +12,7 @@ export interface DeviceItem {
   classificationType: string;
   classificationBrand: string;
   classificationConfidence: number;
+  iconEmoji?: string;
   scanResult?: any;
   bluetoothDevice?: any;
 }
@@ -21,6 +22,7 @@ export interface Classification {
   brand: string;     // es. "Apple", "Samsung", "Sconosciuto"
   model: string;     // eventuale modello (es. "Fast Pair device")
   confidence: number; // 0..100
+  iconEmoji?: string;
 }
 
 export interface SavedTargetDevice {

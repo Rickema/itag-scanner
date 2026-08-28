@@ -1,7 +1,6 @@
 package com.example.itagscanner
 
 import android.Manifest
-import android.app.AlertDialog
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
@@ -12,35 +11,62 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
-import android.widget.*
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ListView
+import android.widget.SeekBar
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.android.material.switchmaterial.SwitchMaterial
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
+    private lateinit var statusIndicatorDot: View
+    private lateinit var statusCountBadge: TextView
+    private lateinit var listCountBadge: TextView
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
-    private lateinit var manageButton: Button
-    private lateinit var includeClassicCheckBox: CheckBox
+    private lateinit var manageCard: View
+    private lateinit var targetActiveDot: View
+    private lateinit var includeClassicSwitch: SwitchMaterial
     private lateinit var rssiSeekBar: SeekBar
-    private lateinit var rssiValueText: TextView
+    private lateinit var rssiBadgeText: TextView
+    private lateinit var btnRssiFar: TextView
+    private lateinit var btnRssiItag: TextView
+    private lateinit var btnRssiNear: TextView
     private lateinit var deviceListView: ListView
     private lateinit var dbLogHeader: View
+    private lateinit var dbLogArrow: TextView
     private lateinit var debugText: TextView
 
-    private lateinit var dbManager: DatabaseManager
+    private lateinit var adapter: DeviceListAdapter
     private val rawDeviceList = mutableListOf<DeviceItem>()
     private val displayDeviceList = mutableListOf<DeviceItem>()
-    private lateinit var adapter: DeviceListAdapter
+    private lateinit var dbManager: DatabaseManager
 
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var isScanning = false
-    private var minRssiThreshold = -100
+    private var minRssiThreshold = -75 // Valore predefinito ottimale (-75 dBm come nella preview)
+
+    // Handler per sincronizzazione fluida della lista senza salti né sfarfallii
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingUpdate = false
+    private val updateRunnable = Runnable {
+        syncDisplayList()
+        pendingUpdate = false
+    }
 
     private val bleScanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
@@ -62,47 +88,84 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        statusText = findViewById(R.id.statusText)
-        startButton = findViewById(R.id.startButton)
-        stopButton = findViewById(R.id.stopButton)
-        manageButton = findViewById(R.id.manageButton)
-        includeClassicCheckBox = findViewById(R.id.includeClassicCheckBox)
-        rssiSeekBar = findViewById(R.id.rssiSeekBar)
-        rssiValueText = findViewById(R.id.rssiValueText)
         deviceListView = findViewById(R.id.deviceListView)
-        dbLogHeader = findViewById(R.id.databaseLogHeader)
-        debugText = findViewById(R.id.debugText)
+
+        // Gonfia l'header con tutte le card dei controlli esattamente conformi alla preview
+        val headerView = layoutInflater.inflate(R.layout.header_main_controls, deviceListView, false)
+        deviceListView.addHeaderView(headerView, null, false)
+
+        // Associa tutti i componenti dell'header
+        statusText = headerView.findViewById(R.id.statusText)
+        statusIndicatorDot = headerView.findViewById(R.id.statusIndicatorDot)
+        statusCountBadge = headerView.findViewById(R.id.statusCountBadge)
+        listCountBadge = headerView.findViewById(R.id.listCountBadge)
+        startButton = headerView.findViewById(R.id.startButton)
+        stopButton = headerView.findViewById(R.id.stopButton)
+        manageCard = headerView.findViewById(R.id.manageCard)
+        targetActiveDot = headerView.findViewById(R.id.targetActiveDot)
+        includeClassicSwitch = headerView.findViewById(R.id.includeClassicSwitch)
+        rssiSeekBar = headerView.findViewById(R.id.rssiSeekBar)
+        rssiBadgeText = headerView.findViewById(R.id.rssiBadgeText)
+        btnRssiFar = headerView.findViewById(R.id.btnRssiFar)
+        btnRssiItag = headerView.findViewById(R.id.btnRssiItag)
+        btnRssiNear = headerView.findViewById(R.id.btnRssiNear)
+        dbLogHeader = headerView.findViewById(R.id.databaseLogHeader)
+        dbLogArrow = headerView.findViewById(R.id.dbLogArrow)
+        debugText = headerView.findViewById(R.id.debugText)
 
         val btManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         bluetoothAdapter = btManager?.adapter
 
         dbManager = DatabaseManager(this)
+
         adapter = DeviceListAdapter(
-            this,
-            displayDeviceList,
+            context = this,
+            items = displayDeviceList,
+            targetMacProvider = {
+                getSharedPreferences("itag_prefs", Context.MODE_PRIVATE).getString("target_mac", null)
+            },
             onSelectClick = { device -> selectTarget(device) },
             onRenameClick = { device -> showRenameDialog(device) }
         )
         deviceListView.adapter = adapter
 
-        // Gestione espansione/riduzione log database al click sull'intestazione
+        // Espansione / Riduzione Log Database
         dbLogHeader.setOnClickListener {
-            debugText.visibility = if (debugText.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            if (debugText.visibility == View.VISIBLE) {
+                debugText.visibility = View.GONE
+                dbLogArrow.text = "▼"
+            } else {
+                debugText.visibility = View.VISIBLE
+                dbLogArrow.text = "▲"
+            }
         }
 
-        // Filtro soglia RSSI
+        // Configurazione SeekBar RSSI (0..50 mappato su -100..-50 dBm)
+        rssiSeekBar.progress = 25 // Corrisponde a -75 dBm
         rssiSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                // Mappa 0..100 su -100..0 dBm
-                minRssiThreshold = -100 + progress
-                rssiValueText.text = "Soglia minima RSSI: $minRssiThreshold dBm"
-                applyRssiFilter()
+                val dbm = -100 + progress
+                minRssiThreshold = dbm
+                rssiBadgeText.text = "$dbm dBm"
+                updatePresetChipHighlights(dbm)
+                scheduleUiUpdate()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        manageButton.setOnClickListener {
+        // 3 Preset Chips Rapidi (Lontano -100, iTAG -75, Vicino -50)
+        btnRssiFar.setOnClickListener {
+            rssiSeekBar.progress = 0
+        }
+        btnRssiItag.setOnClickListener {
+            rssiSeekBar.progress = 25
+        }
+        btnRssiNear.setOnClickListener {
+            rssiSeekBar.progress = 50
+        }
+
+        manageCard.setOnClickListener {
             startActivity(Intent(this, DeviceManagerActivity::class.java))
         }
 
@@ -116,12 +179,42 @@ class MainActivity : AppCompatActivity() {
 
         registerReceiver(classicReceiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
 
-        // Inizializza e aggiorna database Bluetooth SIG in background
+        // Inizializza database SIG integrato
         dbManager.ensureDatabases {
             runOnUiThread {
                 debugText.text = dbManager.getDebugInfo()
             }
         }
+
+        updateTargetStatus()
+        updatePresetChipHighlights(minRssiThreshold)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateTargetStatus()
+        adapter.notifyDataSetChanged()
+    }
+
+    private fun updateTargetStatus() {
+        val targetMac = getSharedPreferences("itag_prefs", Context.MODE_PRIVATE).getString("target_mac", null)
+        val hasTarget = !targetMac.isNullOrEmpty()
+        targetActiveDot.visibility = if (hasTarget) View.VISIBLE else View.GONE
+    }
+
+    private fun updatePresetChipHighlights(threshold: Int) {
+        val isFar = threshold <= -90
+        val isItag = threshold in -85..-65
+        val isNear = threshold >= -60
+
+        btnRssiFar.setBackgroundResource(if (isFar) R.drawable.bg_chip_selected else R.drawable.bg_chip_normal)
+        btnRssiFar.setTextColor(ContextCompat.getColor(this, if (isFar) R.color.primary_indigo else R.color.text_secondary))
+
+        btnRssiItag.setBackgroundResource(if (isItag) R.drawable.bg_chip_selected else R.drawable.bg_chip_normal)
+        btnRssiItag.setTextColor(ContextCompat.getColor(this, if (isItag) R.color.primary_indigo else R.color.text_secondary))
+
+        btnRssiNear.setBackgroundResource(if (isNear) R.drawable.bg_chip_selected else R.drawable.bg_chip_normal)
+        btnRssiNear.setTextColor(ContextCompat.getColor(this, if (isNear) R.color.primary_indigo else R.color.text_secondary))
     }
 
     private fun checkPermissionsAndStartScan() {
@@ -153,16 +246,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         isScanning = true
-        statusText.text = "Scansione principale in corso..."
+        statusText.text = "Scansione ricerca attiva..."
+        statusIndicatorDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#10B981"))
         rawDeviceList.clear()
-        applyRssiFilter()
+        syncDisplayList()
 
         try {
             // 1. Scansione BLE principale
             bluetoothAdapter?.bluetoothLeScanner?.startScan(bleScanCallback)
 
             // 2. Se abilitato, avvia anche Discovery Classica
-            if (includeClassicCheckBox.isChecked) {
+            if (includeClassicSwitch.isChecked) {
                 bluetoothAdapter?.startDiscovery()
             }
         } catch (e: SecurityException) {
@@ -173,6 +267,7 @@ class MainActivity : AppCompatActivity() {
     private fun stopScan() {
         isScanning = false
         statusText.text = "Scansione ferma"
+        statusIndicatorDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#94A3B8"))
         try {
             bluetoothAdapter?.bluetoothLeScanner?.stopScan(bleScanCallback)
             bluetoothAdapter?.cancelDiscovery()
@@ -186,30 +281,54 @@ class MainActivity : AppCompatActivity() {
         val mac = device.address ?: return
 
         val scanRecord = result.scanRecord
-        val deviceName = try { device.name } catch (e: SecurityException) { null } ?: scanRecord?.deviceName ?: "BLE Device"
+        val rawName = try { device.name } catch (e: SecurityException) { null } ?: scanRecord?.deviceName
+        val cleanName = if (rawName.isNullOrBlank() || rawName.equals("BLE Device", ignoreCase = true) || rawName.equals("Unknown", ignoreCase = true)) null else rawName.trim()
         val customName = getSavedCustomName(mac)
 
-        // Ricerca produttore dal database SIG
+        // Produttore dal database SIG
         val manufacturerData = scanRecord?.manufacturerSpecificData
+        var companyId: Int? = null
+        var manufacturerBytes: ByteArray? = null
         var manufacturerName = "N/D"
         if (manufacturerData != null && manufacturerData.size() > 0) {
-            val companyId = manufacturerData.keyAt(0)
+            companyId = manufacturerData.keyAt(0)
+            manufacturerBytes = manufacturerData.valueAt(0)
             manufacturerName = dbManager.getCompanyName(companyId) ?: "ID: 0x${companyId.toString(16).uppercase()}"
         }
 
+        // Servizi e traduzione UUID standard
+        val serviceUuids = scanRecord?.serviceUuids
+        val uuidNames = if (!serviceUuids.isNullOrEmpty()) {
+            serviceUuids.joinToString(", ") { dbManager.getServiceDescription(it.uuid.toString()) }
+        } else {
+            "Nessun servizio standard rilevato"
+        }
+
+        // Motore di Fingerprinting avanzato
+        val classification = dbManager.classifyDevice(
+            name = cleanName,
+            manufacturerId = companyId,
+            manufacturerDataBytes = manufacturerBytes,
+            serviceUuids = serviceUuids,
+            scanRecordBytes = scanRecord?.bytes,
+            bluetoothClass = null,
+            isBle = true
+        )
+
         val item = DeviceItem(
-            name = deviceName,
+            name = cleanName,
             customName = customName,
             address = mac,
             rssi = result.rssi,
             type = "BLE",
-            category = "BLE Peripheral",
-            uuids = scanRecord?.serviceUuids?.joinToString(", ") ?: "N/D",
-            manufacturer = manufacturerName,
+            category = classification.category,
+            uuids = uuidNames,
+            manufacturer = if (classification.brand != "N/D" && classification.brand != "Sconosciuto") classification.brand else manufacturerName,
             appearance = "BLE Standard",
-            classificationType = "BLE Device",
-            classificationBrand = manufacturerName,
-            classificationConfidence = 95,
+            classificationType = classification.category,
+            classificationBrand = classification.brand,
+            classificationConfidence = classification.confidence,
+            iconEmoji = classification.iconEmoji,
             bluetoothDevice = device
         )
 
@@ -218,57 +337,98 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleClassicDevice(device: BluetoothDevice, rssi: Int) {
         val mac = device.address ?: return
-        val name = try { device.name } catch (e: SecurityException) { null } ?: "Dispositivo Classico"
+        val rawName = try { device.name } catch (e: SecurityException) { null }
+        val cleanName = if (rawName.isNullOrBlank() || rawName.equals("Dispositivo Classico", ignoreCase = true) || rawName.equals("Unknown", ignoreCase = true)) null else rawName.trim()
         val customName = getSavedCustomName(mac)
 
+        val btClass = try { device.bluetoothClass } catch (e: SecurityException) { null }
+        val classification = dbManager.classifyDevice(
+            name = cleanName,
+            manufacturerId = null,
+            manufacturerDataBytes = null,
+            serviceUuids = null,
+            scanRecordBytes = null,
+            bluetoothClass = btClass,
+            isBle = false
+        )
+
         val item = DeviceItem(
-            name = name,
+            name = cleanName,
             customName = customName,
             address = mac,
             rssi = rssi,
             type = "Classic",
-            category = "Bluetooth Classico",
-            uuids = "BR/EDR Discovery",
-            manufacturer = "Standard Bluetooth",
+            category = classification.category,
+            uuids = "Profilo BR/EDR Discovery",
+            manufacturer = if (classification.brand != "N/D") classification.brand else "Standard Bluetooth",
             appearance = "BR/EDR",
-            classificationType = "Bluetooth Classico",
-            classificationBrand = "Sconosciuto",
-            classificationConfidence = 85,
+            classificationType = classification.category,
+            classificationBrand = classification.brand,
+            classificationConfidence = classification.confidence,
+            iconEmoji = classification.iconEmoji,
             bluetoothDevice = device
         )
 
         upsertDevice(item)
     }
 
+    /**
+     * Risolve il problema dello scambio/salto continuo dei dispositivi:
+     * - I dispositivi già trovati rimangono ESATTAMENTE nella loro posizione (indice fisso).
+     * - I nuovi dispositivi vengono accodati IN FONDO alla lista.
+     * - Gli aggiornamenti UI sono debouncati/aggregati per evitare microscatti.
+     */
     private fun upsertDevice(item: DeviceItem) {
         runOnUiThread {
             val index = rawDeviceList.indexOfFirst { it.address.equals(item.address, ignoreCase = true) }
             if (index >= 0) {
-                rawDeviceList[index] = item
+                // Aggiornamento in-place alla stessa identica posizione
+                val existing = rawDeviceList[index]
+                val updatedName = item.name ?: existing.name
+                val updatedCustomName = item.customName ?: existing.customName
+                rawDeviceList[index] = item.copy(
+                    name = updatedName,
+                    customName = updatedCustomName
+                )
             } else {
+                // Nuovo dispositivo: aggiunto in coda alla lista
                 rawDeviceList.add(item)
             }
-            applyRssiFilter()
+            scheduleUiUpdate()
         }
     }
 
-    private fun applyRssiFilter() {
+    private fun scheduleUiUpdate() {
+        if (!pendingUpdate) {
+            pendingUpdate = true
+            mainHandler.postDelayed(updateRunnable, 250)
+        }
+    }
+
+    private fun syncDisplayList() {
+        val filtered = rawDeviceList.filter { it.rssi >= minRssiThreshold }
         displayDeviceList.clear()
-        displayDeviceList.addAll(rawDeviceList.filter { it.rssi >= minRssiThreshold })
+        displayDeviceList.addAll(filtered)
         adapter.notifyDataSetChanged()
+
+        statusCountBadge.text = "${rawDeviceList.size} rilevati"
+        listCountBadge.text = "${displayDeviceList.size}"
     }
 
     private fun selectTarget(device: DeviceItem) {
-        val displayName = device.customName ?: device.name ?: device.address
+        val displayName = device.customName ?: device.name ?: "Sconosciuto"
         getSharedPreferences("itag_prefs", Context.MODE_PRIVATE).edit()
             .putString("target_mac", device.address)
             .putString("target_name", displayName)
-            .putString("target_technology", device.type) // "BLE" oppure "Classic"
+            .putString("target_technology", device.type)
             .apply()
 
-        Toast.makeText(this, "Target impostato: $displayName [${device.type}]", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Target impostato: $displayName [${device.address}]", Toast.LENGTH_SHORT).show()
 
-        // Avvia il servizio di tracking nativo in background
+        updateTargetStatus()
+        adapter.notifyDataSetChanged()
+
+        // Avvia o notifica il servizio di tracking in background
         val serviceIntent = Intent(this, ScannerService::class.java)
         startService(serviceIntent)
     }
@@ -286,7 +446,7 @@ class MainActivity : AppCompatActivity() {
                 val newName = input.text.toString().trim()
                 saveCustomName(device.address, newName)
                 device.customName = newName
-                adapter.notifyDataSetChanged()
+                syncDisplayList()
                 Toast.makeText(this, "Nome salvato!", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Annulla", null)
@@ -306,10 +466,11 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         stopScan()
+        mainHandler.removeCallbacks(updateRunnable)
         try {
             unregisterReceiver(classicReceiver)
         } catch (e: Exception) {
-            // ignora
+            // Ignora
         }
     }
 }
