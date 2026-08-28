@@ -19,6 +19,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelUuid
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.ListView
@@ -158,7 +159,6 @@ class MainActivity : AppCompatActivity() {
 
         startButton.setOnClickListener {
             if (checkPermissions()) {
-                // Avvia il download/aggiornamento database in background
                 lifecycleScope.launch {
                     val success = try {
                         dbManager.ensureDatabases()
@@ -172,7 +172,7 @@ class MainActivity : AppCompatActivity() {
                         startScanning()
                     } else {
                         Toast.makeText(this@MainActivity, "Errore download DB, uso cache", Toast.LENGTH_LONG).show()
-                        startScanning() // usa comunque i dati in cache
+                        startScanning()
                     }
                 }
             }
@@ -188,11 +188,7 @@ class MainActivity : AppCompatActivity() {
 
         updateStatus(false)
     }
-    private fun getDatabaseInfo(): String {
-    return "Company IDs: ${companyIdMap.size} voci\n" +
-           "Service UUIDs: ${serviceUuidMap.size} voci\n" +
-           "Appearance: ${appearanceMap.size} voci"
-    }
+
     private fun checkPermissions(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val permissions = mutableListOf(

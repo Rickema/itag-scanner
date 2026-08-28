@@ -187,7 +187,12 @@ class DatabaseManager(private val context: Context) {
             }
         }
     }
-
+    
+    fun getDatabaseInfo(): String {
+    return "Company IDs: ${companyIdMap.size} voci\n" +
+           "Service UUIDs: ${serviceUuidMap.size} voci\n" +
+           "Appearance: ${appearanceMap.size} voci"
+    }
     /**
      * Restituisce il nome del produttore per un Company ID.
      */
