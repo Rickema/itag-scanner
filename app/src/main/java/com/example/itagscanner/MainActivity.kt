@@ -203,51 +203,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Include i dispositivi gia associati/accoppiati nel sistema Android
+     * Non popoliamo più la lista forzatamente con i dispositivi associati con RSSI finti.
+     * Vengono scoperti e classificati tramite la scansione reale.
      */
     private fun loadBondedDevices() {
-        try {
-            val bonded = bluetoothAdapter?.bondedDevices ?: return
-            for (device in bonded) {
-                val mac = device.address ?: continue
-                val rawName = try { device.name } catch (e: SecurityException) { null }
-                val cleanName = if (rawName.isNullOrBlank() || rawName.equals("BLE Device", ignoreCase = true) || rawName.equals("Unknown", ignoreCase = true)) null else rawName.trim()
-                val customName = getSavedCustomName(mac)
-                val btClass = try { device.bluetoothClass } catch (e: SecurityException) { null }
-
-                val classification = dbManager.classifyDevice(
-                    name = cleanName,
-                    manufacturerId = null,
-                    manufacturerDataBytes = null,
-                    serviceUuids = null,
-                    scanRecordBytes = null,
-                    bluetoothClass = btClass,
-                    isBle = false,
-                    isBonded = true
-                )
-
-                val item = DeviceItem(
-                    name = cleanName,
-                    customName = customName,
-                    address = mac,
-                    rssi = -60, // Segnale nominale predefinito per associati
-                    type = "Classic",
-                    category = classification.category,
-                    uuids = "Dispositivo Accoppiato nel Sistema",
-                    manufacturer = classification.brand,
-                    appearance = "Associato System",
-                    classificationType = classification.category,
-                    classificationBrand = classification.brand,
-                    classificationConfidence = 99,
-                    estimatedDistance = "~1.0 m",
-                    isBonded = true,
-                    bluetoothDevice = device
-                )
-                upsertDevice(item)
-            }
-        } catch (e: SecurityException) {
-            // Ignora se mancano i permessi
-        }
+        // No-op
     }
 
     private fun updateTargetStatus() {
@@ -459,7 +419,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun syncDisplayList() {
-        val filtered = rawDeviceList.filter { it.rssi >= minRssiThreshold || it.isBonded }
+        val filtered = rawDeviceList.filter { it.rssi >= minRssiThreshold }
         displayDeviceList.clear()
         displayDeviceList.addAll(filtered)
         adapter.notifyDataSetChanged()
