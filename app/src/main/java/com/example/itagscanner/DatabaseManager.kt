@@ -15,6 +15,25 @@ import java.util.Locale
 
 class DatabaseManager(private val context: Context) {
 
+    fun getDebugInfo(): String {
+    val cacheDir = File(context.filesDir, CACHE_DIR)
+    val companyFile = File(cacheDir, COMPANY_IDS_FILE)
+    val serviceFile = File(cacheDir, SERVICE_UUIDS_FILE)
+    val appearanceFile = File(cacheDir, APPEARANCE_VALUES_FILE)
+
+    return buildString {
+        appendLine("Directory: ${cacheDir.absolutePath}")
+        appendLine("Company file: esiste=${companyFile.exists()}, dimensione=${if (companyFile.exists()) companyFile.length() else 0} bytes")
+        appendLine("Service file: esiste=${serviceFile.exists()}, dimensione=${if (serviceFile.exists()) serviceFile.length() else 0} bytes")
+        appendLine("Appearance file: esiste=${appearanceFile.exists()}, dimensione=${if (appearanceFile.exists()) appearanceFile.length() else 0} bytes")
+        appendLine("Company IDs caricati: ${companyIdMap.size}")
+        appendLine("Service UUIDs caricati: ${serviceUuidMap.size}")
+        appendLine("Appearance caricati: ${appearanceMap.size}")
+        if (lastError.isNotEmpty()) {
+            appendLine("Ultimo errore: $lastError")
+        }
+    }
+}
     companion object {
         private const val TAG = "DatabaseManager"
         private const val COMPANY_IDS_URL = "https://bitbucket.org/bluetooth-SIG/public/raw/main/assigned_numbers/company_identifiers/company_identifiers.yaml"
@@ -88,27 +107,29 @@ class DatabaseManager(private val context: Context) {
         val appearanceFile = File(cacheDir, APPEARANCE_VALUES_FILE)
 
         if (shouldUpdate() || !companyFile.exists() || !serviceFile.exists() || !appearanceFile.exists()) {
-            var downloaded = false
-            // Scarica in parallelo (o sequenziale, per semplicità)
+        var downloaded = false
+        try {
             if (!companyFile.exists() || shouldUpdate()) {
                 if (downloadFile(COMPANY_IDS_URL, companyFile)) downloaded = true
+                else lastError += "Download company fallito; "
             }
             if (!serviceFile.exists() || shouldUpdate()) {
                 if (downloadFile(SERVICE_UUIDS_URL, serviceFile)) downloaded = true
+                else lastError += "Download service fallito; "
             }
             if (!appearanceFile.exists() || shouldUpdate()) {
                 if (downloadFile(APPEARANCE_VALUES_URL, appearanceFile)) downloaded = true
+                else lastError += "Download appearance fallito; "
             }
-
-            if (downloaded) {
-                // Aggiorna timestamp ultimo update
-                val prefs = context.getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
-                prefs.edit().putLong(LAST_UPDATE_KEY, System.currentTimeMillis()).apply()
-            }
+        } catch (e: Exception) {
+            lastError += "Eccezione: ${e.message}"
         }
-
-        // Carica i file in memoria (se presenti)
-        loadMapsFromFiles(cacheDir)
+        if (downloaded) {
+            val prefs = context.getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putLong(LAST_UPDATE_KEY, System.currentTimeMillis()).apply()
+        }
+    }
+    loadMapsFromFiles(File(context.filesDir, CACHE_DIR))
     }
 
     /**

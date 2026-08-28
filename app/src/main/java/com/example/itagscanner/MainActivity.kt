@@ -121,7 +121,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
+        val debugText = findViewById<TextView>(R.id.debugText)
         statusText = findViewById(R.id.statusText)
         startButton = findViewById(R.id.startButton)
         stopButton = findViewById(R.id.stopButton)
@@ -166,14 +166,10 @@ class MainActivity : AppCompatActivity() {
                     } catch (e: Exception) {
                         false
                     }
-                    if (success) {
-                        val info = dbManager.getDatabaseInfo()
-                        Toast.makeText(this@MainActivity, "Database caricati:\n$info", Toast.LENGTH_LONG).show()
-                        startScanning()
-                    } else {
-                        Toast.makeText(this@MainActivity, "Errore download DB, uso cache", Toast.LENGTH_LONG).show()
-                        startScanning()
-                    }
+                    val debugInfo = dbManager.getDebugInfo()
+                    debugText.text = debugInfo
+                    Toast.makeText(this@MainActivity, debugInfo, Toast.LENGTH_LONG).show()
+                    if (success) startScanning() else startScanning()
                 }
             }
         }
