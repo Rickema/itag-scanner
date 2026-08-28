@@ -14,9 +14,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:padding="12dp">
 
-        <!-- Riga Superiore: Nome Dispositivo + Pill Badge BLE / Classico -->
+        <!-- RIGA 1 (COLLAPSATO IN SCANSIONE): Nome + Tag BLE (Solo per BLE) + Tasto Target -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -35,128 +35,27 @@
                 android:ellipsize="end"
                 android:maxLines="1" />
 
+            <!-- TAG SINTETICO SOLO PER BLE (Nessun tag per Classico) -->
             <TextView
                 android:id="@+id/technologyBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="BLE (Bluetooth Low Energy)"
+                android:text="BLE"
                 android:textSize="10sp"
                 android:textStyle="bold"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="3dp"
-                android:paddingBottom="3dp"
-                android:background="@drawable/bg_badge_ble"
-                android:textColor="@color/ble_badge_text" />
-        </LinearLayout>
-
-        <!-- Riga 2: Tipologia Identificata Reale (senza emoji) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="6dp">
-
-            <TextView
-                android:id="@+id/typeText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Tracker / Portachiavi (iTAG) (98%)"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="@color/primary_indigo"
-                android:background="@drawable/bg_chip_selected"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
                 android:paddingTop="2dp"
-                android:paddingBottom="2dp" />
-        </LinearLayout>
-
-        <!-- Riga 3: Produttore Identificato -->
-        <TextView
-            android:id="@+id/manufacturerText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Produttore: N/D"
-            android:textSize="12sp"
-            android:textColor="@color/text_secondary"
-            android:layout_marginTop="5dp" />
-
-        <!-- Riga 4: Servizi e Funzionalita -->
-        <TextView
-            android:id="@+id/uuidText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Servizi: Immediate Alert, Link Loss"
-            android:textSize="11sp"
-            android:textColor="@color/text_secondary"
-            android:layout_marginTop="3dp"
-            android:maxLines="2"
-            android:ellipsize="end" />
-
-        <!-- Riga 5 Opzionale: Model ID Fast Pair se presente -->
-        <TextView
-            android:id="@+id/modelIdText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Fast Pair Model ID: N/D"
-            android:textSize="11sp"
-            android:textColor="#1976D2"
-            android:visibility="gone"
-            android:layout_marginTop="2dp" />
-
-        <!-- Riga Inferiore: Segnale RSSI + Distanza stimata + MAC + Pulsanti Azioni -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="10dp">
-
-            <!-- Dot indicatore segnale RSSI -->
-            <View
-                android:id="@+id/rssiDot"
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:background="@drawable/dot_indicator"
-                android:backgroundTint="@color/target_active_green" />
-
-            <TextView
-                android:id="@+id/rssiText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                android:text="-75 dBm (~1.5 m) [AA:BB:CC:DD:EE:FF]"
-                android:textSize="11sp"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary" />
-
-            <!-- Pulsante Interroga / Ispezione Approfondita -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/inspectButton"
-                android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:text="INTERROGA"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:textColor="#3F51B5"
-                app:strokeColor="#3F51B5"
-                app:strokeWidth="1dp"
-                app:backgroundTint="#F1F5F9"
-                app:cornerRadius="8dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
+                android:paddingBottom="2dp"
+                android:background="@drawable/bg_badge_ble"
+                android:textColor="#FFFFFF"
                 android:layout_marginEnd="6dp" />
 
-            <!-- Pulsante Imposta Target -->
+            <!-- Pulsante Target Diretto -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/selectButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
+                android:layout_height="36dp"
                 android:text="TARGET"
                 android:textSize="10sp"
                 android:textStyle="bold"
@@ -167,6 +66,140 @@
                 android:insetBottom="0dp"
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp" />
+
+            <TextView
+                android:id="@+id/expandArrow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▼"
+                android:textSize="10sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginStart="6dp" />
+        </LinearLayout>
+
+        <!-- RIGA 2 (IN SCANSIONE): Indirizzo MAC + Distanza stimata in Metri + RSSI -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="4dp">
+
+            <View
+                android:id="@+id/rssiDot"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:background="@drawable/dot_indicator"
+                android:backgroundTint="@color/target_active_green" />
+
+            <TextView
+                android:id="@+id/rssiText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="FC:58:FA:82:11:4E • ~1.5 m (-72 dBm)"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/text_secondary" />
+        </LinearLayout>
+
+        <!-- DETTAGLI ESPANSI AL TOCCO -->
+        <LinearLayout
+            android:id="@+id/expandedDetailContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="10dp"
+            android:paddingTop="10dp"
+            android:background="#F8FAFC"
+            android:padding="10dp">
+
+            <!-- Tipologia Identificata Reale -->
+            <TextView
+                android:id="@+id/typeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tracker / Portachiavi (iTAG) (98%)"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary_indigo"
+                android:background="@drawable/bg_chip_selected"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp" />
+
+            <!-- Produttore Identificato -->
+            <TextView
+                android:id="@+id/manufacturerText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Produttore: Nordic Semiconductor"
+                android:textSize="11sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="4dp" />
+
+            <!-- Servizi e UUID -->
+            <TextView
+                android:id="@+id/uuidText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Servizi: Immediate Alert, Link Loss"
+                android:textSize="10sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="3dp" />
+
+            <!-- Fast Pair Model ID se presente -->
+            <TextView
+                android:id="@+id/modelIdText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Fast Pair Model ID: N/D"
+                android:textSize="10sp"
+                android:textColor="#1976D2"
+                android:visibility="gone"
+                android:layout_marginTop="2dp" />
+
+            <!-- Azioni Avanzate Espanse -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="end"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/renameButton"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Rinomina"
+                    android:textSize="10sp"
+                    android:textColor="@color/text_primary"
+                    app:cornerRadius="6dp"
+                    android:layout_marginEnd="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/inspectButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="INTERROGA DISPOSITIVO"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textColor="#3F51B5"
+                    app:strokeColor="#3F51B5"
+                    app:strokeWidth="1dp"
+                    app:backgroundTint="#E0E7FF"
+                    app:cornerRadius="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp" />
+            </LinearLayout>
+
         </LinearLayout>
 
     </LinearLayout>

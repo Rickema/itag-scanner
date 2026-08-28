@@ -18,5 +18,6 @@ data class DeviceItem(
     val classificationConfidence: Int = 50,
     val estimatedDistance: String = "N/D",
     val isBonded: Boolean = false,
-    val bluetoothDevice: BluetoothDevice? = null
+    val bluetoothDevice: BluetoothDevice? = null,
+    var isExpanded: Boolean = false
 )

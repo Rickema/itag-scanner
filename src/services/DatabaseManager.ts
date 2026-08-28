@@ -181,75 +181,10 @@ export class DatabaseManager {
    * Assicura che i database siano presenti e aggiornati.
    * Se non esistono o se è scaduto l'intervallo di aggiornamento, tenta il download.
    */
-  async ensureDatabases(force = false): Promise<void> {
+  async ensureDatabases(_force = false): Promise<void> {
     this.lastError = "";
-    const updateNeeded = force || this.shouldUpdate();
-
-    let companyYaml = localStorage.getItem(DatabaseManager.CACHE_PREFIX + "company");
-    let serviceYaml = localStorage.getItem(DatabaseManager.CACHE_PREFIX + "service");
-    let appearanceYaml = localStorage.getItem(DatabaseManager.CACHE_PREFIX + "appearance");
-
-    let downloaded = false;
-
-    if (updateNeeded || !companyYaml || !serviceYaml || !appearanceYaml) {
-      try {
-        if (!companyYaml || updateNeeded) {
-          const text = await this.downloadTextWithTimeout(DatabaseManager.COMPANY_IDS_URL);
-          if (text) {
-            companyYaml = text;
-            localStorage.setItem(DatabaseManager.CACHE_PREFIX + "company", text);
-            downloaded = true;
-          } else {
-            this.lastError += "Download company: CORS/rete (Uso fallback locale SIG); ";
-          }
-        }
-
-        if (!serviceYaml || updateNeeded) {
-          const text = await this.downloadTextWithTimeout(DatabaseManager.SERVICE_UUIDS_URL);
-          if (text) {
-            serviceYaml = text;
-            localStorage.setItem(DatabaseManager.CACHE_PREFIX + "service", text);
-            downloaded = true;
-          } else {
-            this.lastError += "Download service: CORS/rete (Uso fallback locale SIG); ";
-          }
-        }
-
-        if (!appearanceYaml || updateNeeded) {
-          const text = await this.downloadTextWithTimeout(DatabaseManager.APPEARANCE_VALUES_URL);
-          if (text) {
-            appearanceYaml = text;
-            localStorage.setItem(DatabaseManager.CACHE_PREFIX + "appearance", text);
-            downloaded = true;
-          } else {
-            this.lastError += "Download appearance: CORS/rete (Uso fallback locale SIG); ";
-          }
-        }
-      } catch (e: any) {
-        this.lastError += `Eccezione download: ${e?.message || e}; `;
-      }
-
-      if (downloaded) {
-        localStorage.setItem(DatabaseManager.LAST_UPDATE_KEY, Date.now().toString());
-      }
-    }
-
-    // Parse YAMLs if available
-    if (companyYaml) {
-      this.hasCompanyFile = true;
-      this.companyFileSize = companyYaml.length;
-      this.parseCompanyYaml(companyYaml);
-    }
-    if (serviceYaml) {
-      this.hasServiceFile = true;
-      this.serviceFileSize = serviceYaml.length;
-      this.parseServiceYaml(serviceYaml);
-    }
-    if (appearanceYaml) {
-      this.hasAppearanceFile = true;
-      this.appearanceFileSize = appearanceYaml.length;
-      this.parseAppearanceYaml(appearanceYaml);
-    }
+    // Re-ensure fallback maps are fully initialized locally
+    this.initFallbackMaps();
   }
 
   async forceRefreshDatabases(): Promise<string> {

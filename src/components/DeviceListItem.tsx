@@ -43,12 +43,26 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
   };
 
   const isBle = item.type === "BLE";
-  const isSignalStrong = item.rssi >= -75;
-
   const rawName = (item.name || "").trim();
-  const isGenericName = !rawName || rawName.toLowerCase() === "ble device" || rawName.toLowerCase() === "dispositivo classico" || rawName.toLowerCase() === "unknown";
-  const displayName = item.customName ? item.customName : (isGenericName ? "Sconosciuto" : rawName);
-  const estimatedDist = item.estimatedDistance || calculateDistance(item.rssi);
+  const isGenericName =
+    !rawName ||
+    rawName.toLowerCase() === "ble device" ||
+    rawName.toLowerCase() === "dispositivo classico" ||
+    rawName.toLowerCase() === "unknown" ||
+    rawName.toLowerCase() === "n/d";
+
+  // Se sconosciuto -> sempre "Sconosciuto"
+  const displayName = item.customName
+    ? item.customName
+    : isGenericName
+    ? "Sconosciuto"
+    : rawName;
+
+  const estimatedDist = item.estimatedDistance && item.estimatedDistance !== "N/D"
+    ? item.estimatedDistance
+    : calculateDistance(item.rssi);
+
+  const isSignalStrong = item.rssi >= -75;
 
   return (
     <div
@@ -57,26 +71,27 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
       onTouchEnd={handleTouchEnd}
       onMouseDown={handleTouchStart}
       onMouseUp={handleTouchEnd}
-      className={`p-3.5 sm:p-4 border-b border-gray-200 transition-colors select-none ${
-        isTarget ? 'bg-indigo-50/70 border-l-4 border-l-[#3F51B5]' : 'bg-white hover:bg-gray-50'
+      onClick={() => setIsExpanded(!isExpanded)}
+      className={`p-3.5 sm:p-4 border-b border-gray-200 transition-all cursor-pointer select-none ${
+        isTarget
+          ? 'bg-indigo-50/80 border-l-4 border-l-[#3F51B5]'
+          : 'bg-white hover:bg-gray-50'
       }`}
-      title="Tieni premuto per rinominare"
     >
-      <div className="flex flex-col space-y-2.5">
+      <div className="flex flex-col space-y-2">
         
-        {/* Intestazione del Dispositivo: Nome + Azioni */}
-        <div className="flex items-start justify-between gap-2">
+        {/* RIGA 1 (In Scansione): Nome + Tag BLE (Solo se BLE) + MAC + Metri + Tasto Target */}
+        <div className="flex items-center justify-between gap-2">
+          
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span
-                id="nameText"
-                className="text-sm sm:text-base font-bold text-gray-900 truncate"
-              >
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Nome del dispositivo */}
+              <span id="nameText" className="text-sm sm:text-base font-bold text-gray-900 truncate">
                 {item.customName ? (
                   <span>
                     {item.customName}
-                    <span className="text-xs font-normal text-indigo-700 ml-1.5 font-sans">
-                      (orig: {isGenericName ? "Sconosciuto" : rawName})
+                    <span className="text-xs font-normal text-indigo-700 ml-1 font-sans">
+                      ({isGenericName ? "Sconosciuto" : rawName})
                     </span>
                   </span>
                 ) : (
@@ -84,72 +99,35 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
                 )}
               </span>
 
-              {/* Pulsante rapido matita rinomina */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRename(item);
-                }}
-                className="p-1 text-gray-400 hover:text-[#3F51B5] hover:bg-indigo-50 rounded transition-colors"
-                title="Rinomina dispositivo"
-                aria-label="Rinomina"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              </button>
+              {/* Tag SINTETICO solo per BLE (Nessun tag per Classico) */}
+              {isBle && (
+                <span
+                  id="technologyBadge"
+                  className="bg-blue-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0"
+                >
+                  BLE
+                </span>
+              )}
 
               {isTarget && (
-                <span className="text-[10px] uppercase font-extrabold bg-[#3F51B5] text-white px-2 py-0.5 rounded shadow-2xs">
+                <span className="text-[10px] uppercase font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded shrink-0">
                   TARGET ATTIVO
                 </span>
               )}
             </div>
 
-            {/* Tipologia Riconosciuta reale senza emoji */}
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3F51B5] bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
-                <span>{item.classificationType}</span>
-                <span className="text-indigo-400 font-normal">({item.classificationConfidence}%)</span>
-              </span>
-            </div>
-
-            {/* Badge Tecnologia & Indirizzo MAC */}
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-              <span
-                id="technologyBadge"
-                className={`inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                  isBle
-                    ? "bg-blue-50 text-blue-800 border border-blue-200"
-                    : "bg-amber-50 text-amber-900 border border-amber-300"
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${isBle ? "bg-blue-600" : "bg-amber-600"}`} />
-                <span>{isBle ? "BLE (Low Energy)" : "Bluetooth Classico"}</span>
-              </span>
-
-              <span className="text-xs font-mono text-gray-500">
-                {item.address}
-              </span>
+            {/* Indirizzo MAC + Distanza stimata in Metri + RSSI */}
+            <div className="flex items-center gap-2 text-xs font-mono text-gray-600 mt-1">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${isSignalStrong ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span className="font-semibold text-gray-900">{item.address}</span>
+              <span className="text-gray-400">•</span>
+              <span className="text-indigo-700 font-bold font-sans">~{estimatedDist}</span>
+              <span className="text-gray-400 font-normal">({item.rssi} dBm)</span>
             </div>
           </div>
 
-          {/* Pulsanti Interroga e Seleziona Target */}
+          {/* Pulsante Target Diretto */}
           <div className="shrink-0 flex items-center gap-1.5">
-            {onInspect && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onInspect(item);
-                }}
-                className="text-xs px-2.5 py-1.5 font-bold rounded-lg border border-indigo-600 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors min-h-[38px]"
-              >
-                INTERROGA
-              </button>
-            )}
-
             <button
               id={`selectButton-${item.address.replace(/[^a-zA-Z0-9]/g, '-')}`}
               type="button"
@@ -157,91 +135,93 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
                 e.stopPropagation();
                 onSelect(item);
               }}
-              className={`text-xs px-3.5 py-2 uppercase font-bold rounded-lg shadow-xs transition-colors min-h-[38px] flex items-center gap-1 ${
+              className={`text-xs px-3 py-1.5 font-bold rounded-lg transition-colors min-h-[36px] flex items-center gap-1 uppercase tracking-wide ${
                 isTarget
-                  ? "bg-green-600 text-white hover:bg-green-700"
-                  : "bg-[#3F51B5] hover:bg-[#303F9F] text-white"
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  : 'bg-[#3F51B5] hover:bg-[#303F9F] text-white'
               }`}
             >
-              {isTarget ? (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Target</span>
-                </>
-              ) : (
-                <span>Target</span>
-              )}
+              {isTarget ? 'TARGET' : 'TARGET'}
             </button>
-          </div>
-        </div>
-
-        {/* Dettagli tecnici approfonditi */}
-        <div className="space-y-1 text-xs text-gray-700 bg-gray-50/80 p-2.5 rounded-lg border border-gray-100">
-          <div id="typeText" className="flex items-center justify-between text-[11px]">
-            <span className="text-gray-500 font-medium">Classificazione SIG:</span>
-            <span className="font-semibold text-gray-800">{item.classificationType} ({item.classificationConfidence}%)</span>
-          </div>
-
-          <div id="manufacturerText" className="flex items-center justify-between text-[11px]">
-            <span className="text-gray-500 font-medium">Produttore SIG:</span>
-            <span className="truncate max-w-[200px] text-right font-medium text-gray-800" title={item.manufacturer}>
-              {item.manufacturer}
+            <span className="text-gray-400 text-xs pl-1">
+              {isExpanded ? '▲' : '▼'}
             </span>
           </div>
+        </div>
 
-          {isExpanded && (
-            <>
-              <div id="techDetail" className="flex items-center justify-between text-[11px] pt-0.5">
-                <span className="text-gray-500 font-medium">Protocollo:</span>
-                <span className={isBle ? "text-blue-700 font-medium" : "text-amber-800 font-medium"}>
-                  {isBle ? "Bluetooth LE (GATT / Beacon)" : "Classic BR/EDR (Audio/Serial)"}
+        {/* DETTAGLI ESPANSI AL TOCCO */}
+        {isExpanded && (
+          <div className="mt-2 pt-2.5 border-t border-gray-100 bg-slate-50 p-3 rounded-lg space-y-2 text-xs text-gray-700">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 font-medium">Classificazione:</span>
+              <span className="font-bold text-indigo-900 bg-indigo-100/80 px-2 py-0.5 rounded text-[11px]">
+                {item.classificationType} ({item.classificationConfidence}%)
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 font-medium">Produttore SIG:</span>
+              <span className="font-semibold text-gray-900">{item.manufacturer}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 font-medium">Tecnologia Protocollo:</span>
+              <span className="font-medium text-gray-800">
+                {isBle ? 'Bluetooth Low Energy (GATT)' : 'Bluetooth Classico (BR/EDR)'}
+              </span>
+            </div>
+
+            {item.appearance && item.appearance !== 'N/D' && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500 font-medium">Aspetto GAP:</span>
+                <span className="font-medium text-gray-800">{item.appearance}</span>
+              </div>
+            )}
+
+            {item.uuids && (
+              <div className="text-[11px] text-gray-600">
+                <span className="font-semibold text-gray-700 block mb-0.5">Servizi Pubblicizzati:</span>
+                <span className="bg-white p-1.5 rounded border border-gray-200 block font-mono text-[10px] break-all">
+                  {item.uuids}
                 </span>
               </div>
+            )}
 
-              <div id="appearanceText" className="flex items-center justify-between text-[11px]">
-                <span className="text-gray-500 font-medium">Aspetto:</span>
-                <span className="truncate max-w-[200px] text-right">{item.appearance}</span>
+            {item.modelId && item.modelId !== 'N/D' && (
+              <div className="flex items-center justify-between font-mono text-[11px] text-indigo-800 bg-indigo-50 p-1.5 rounded border border-indigo-100">
+                <span className="font-semibold">Fast Pair Model ID:</span>
+                <span>{item.modelId}</span>
               </div>
+            )}
 
-              <div id="uuidText" className="text-[10px] text-gray-500 pt-0.5 truncate" title={item.uuids}>
-                <span className="font-semibold text-gray-600">UUIDs: </span>
-                {item.uuids}
-              </div>
+            {/* PULSANTI AZIONI DENTRO IL PANNELLO ESPANSO */}
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRename(item);
+                }}
+                className="text-xs px-2.5 py-1.5 font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                Rinomina
+              </button>
 
-              {item.modelId && item.modelId !== "N/D" && (
-                <div id="modelIdText" className="text-[10px] font-mono text-indigo-700">
-                  <span className="font-semibold">Fast Pair Model ID:</span> {item.modelId}
-                </div>
+              {onInspect && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onInspect(item);
+                  }}
+                  className="text-xs px-3 py-1.5 font-bold text-indigo-700 bg-indigo-100 hover:bg-indigo-200 border border-indigo-300 rounded-md transition-colors uppercase tracking-wider"
+                >
+                  INTERROGA DISPOSITIVO
+                </button>
               )}
-            </>
-          )}
-
-          {/* Toggle espandi dettagli extra */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsExpanded(!isExpanded);
-            }}
-            className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold pt-0.5 flex items-center gap-0.5"
-          >
-            <span>{isExpanded ? "Mostra meno dettagli" : "Mostra UUID e dettagli tecnici..."}</span>
-          </button>
-        </div>
-
-        {/* Barra di Segnale RSSI + Distanza Stimata */}
-        <div className="flex items-center justify-between text-xs pt-0.5">
-          <div id="rssiText" className="font-medium text-gray-800 flex items-center gap-1.5">
-            <span className={`inline-block w-2.5 h-2.5 rounded-full ${isSignalStrong ? 'bg-green-500' : 'bg-amber-500'}`} />
-            <span>Segnale RSSI: <strong className="font-mono">{item.rssi} dBm</strong> (~{estimatedDist})</span>
+            </div>
           </div>
-
-          <span className="text-[10px] text-gray-400 font-medium">
-            {isBle ? "Target monitorato via BLE" : "Target monitorato via Classico"}
-          </span>
-        </div>
+        )}
 
       </div>
     </div>

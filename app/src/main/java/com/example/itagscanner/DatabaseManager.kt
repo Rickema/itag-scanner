@@ -216,33 +216,7 @@ class DatabaseManager(private val context: Context) {
      * Sincronizzazione dinamica in background senza blocchi né errori
      */
     fun syncDatabaseFromRemote() {
-        executor.execute {
-            try {
-                val url = URL("https://raw.githubusercontent.com/nordic-developer-zone/bluetooth-numbers-database/master/v1/company_ids.json")
-                val connection = url.openConnection() as HttpURLConnection
-                connection.connectTimeout = 4000
-                connection.readTimeout = 4000
-                connection.requestMethod = "GET"
-
-                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                    val stream = connection.inputStream
-                    val jsonText = stream.bufferedReader().use { it.readText() }
-                    val jsonArray = JSONArray(jsonText)
-                    for (i in 0 until jsonArray.length()) {
-                        val obj = jsonArray.getJSONObject(i)
-                        val code = obj.optInt("code", -1)
-                        val name = obj.optString("name", "")
-                        if (code >= 0 && name.isNotEmpty()) {
-                            companyIdMap[code] = name
-                        }
-                    }
-                    context.getSharedPreferences("sig_database_cache", Context.MODE_PRIVATE)
-                        .edit().putString("companies_json", jsonText).apply()
-                }
-            } catch (e: Exception) {
-                // In caso di assenza di connessione, continua silenziosamente con il DB esteso offline
-            }
-        }
+        // Database locale completo gia pronto offline
     }
 
     fun ensureDatabases(callback: () -> Unit) {
