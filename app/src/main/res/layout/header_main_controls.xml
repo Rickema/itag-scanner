@@ -425,27 +425,17 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- Intestazione Cliccabile -->
             <LinearLayout
                 android:id="@+id/databaseLogHeader"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="10dp"
+                android:padding="12dp"
+                android:background="#F8FAFC"
                 android:gravity="center_vertical"
                 android:clickable="true"
                 android:focusable="true">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="LOG DATABASE SIG (Tocca per espandere)"
-                    android:drawableStart="@android:drawable/ic_menu_info_details"
-                    android:drawableTint="@color/primary_indigo"
-                    android:drawablePadding="6dp"
-                    android:textStyle="bold"
-                    android:textSize="11sp"
-                    android:textColor="@color/primary_indigo" />
 
                 <TextView
                     android:id="@+id/dbLogArrow"
@@ -453,20 +443,128 @@
                     android:layout_height="wrap_content"
                     android:text="▼"
                     android:textSize="10sp"
-                    android:textColor="@color/primary_indigo" />
+                    android:textColor="#64748B"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="DATABASE BLUETOOTH SIG &amp; DIAGNOSTICA"
+                    android:textStyle="bold"
+                    android:textSize="10sp"
+                    android:textColor="#1E293B"
+                    android:letterSpacing="0.05" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/refreshDbButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:text="Aggiorna DB"
+                    android:textSize="8sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary_indigo"
+                    app:backgroundTint="#FFFFFF"
+                    app:strokeColor="#C7D2FE"
+                    app:strokeWidth="1dp"
+                    app:icon="@android:drawable/ic_popup_sync"
+                    app:iconTint="@color/primary_indigo"
+                    app:iconSize="12dp"
+                    app:iconPadding="4dp"
+                    app:cornerRadius="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/debugText"
+            <!-- Contenuto Espandibile -->
+            <LinearLayout
+                android:id="@+id/databaseLogContent"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#0F172A"
-                android:textColor="#34D399"
-                android:fontFamily="monospace"
-                android:textSize="10sp"
-                android:padding="10dp"
+                android:orientation="vertical"
+                android:padding="12dp"
                 android:visibility="gone"
-                android:text="Database SIG Offline Pronto." />
+                android:background="#F8F9FA">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#E2E8F0"
+                    android:layout_marginBottom="8dp"
+                    android:layout_marginTop="-12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="6dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Sorgente: Bitbucket Bluetooth SIG (assigned_numbers)"
+                        android:textSize="10sp"
+                        android:textColor="#475569" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <View
+                            android:layout_width="6dp"
+                            android:layout_height="6dp"
+                            android:background="@drawable/dot_indicator"
+                            android:backgroundTint="#059669"
+                            android:layout_marginEnd="4dp" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Cache attiva locale (30 giorni)"
+                            android:textSize="10sp"
+                            android:textColor="#15803D"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="I file YAML (numeri assegnati da Bluetooth SIG per Company Identifiers e Appearance) vengono scaricati e analizzati per riconoscere i costruttori Bluetooth."
+                    android:textSize="10sp"
+                    android:textColor="#64748B"
+                    android:layout_marginBottom="10dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="LOG DI CARICAMENTO IN TEMPO REALE:"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:textColor="#94A3B8"
+                    android:layout_marginBottom="4dp" />
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="100dp"
+                    android:background="#0F172A"
+                    android:padding="8dp">
+
+                    <TextView
+                        android:id="@+id/debugText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#34D399"
+                        android:fontFamily="monospace"
+                        android:textSize="10sp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="Database SIG Offline Pronto." />
+                </ScrollView>
+            </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

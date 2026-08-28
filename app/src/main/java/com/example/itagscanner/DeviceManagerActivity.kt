@@ -3,7 +3,11 @@ package com.example.itagscanner
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
 import android.widget.Button
+import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -22,6 +26,10 @@ class DeviceManagerActivity : AppCompatActivity() {
     private lateinit var restartServiceButton: Button
     private lateinit var testNearButton: Button
     private lateinit var testFarButton: Button
+    
+    private lateinit var archiveContainer: LinearLayout
+    private lateinit var archiveCountBadge: TextView
+    private lateinit var emptyArchiveText: TextView
 
     private var scanDurationSec = 5
     private var scanIntervalSec = 20
@@ -41,8 +49,13 @@ class DeviceManagerActivity : AppCompatActivity() {
         restartServiceButton = findViewById(R.id.restartServiceButton)
         testNearButton = findViewById(R.id.testNearButton)
         testFarButton = findViewById(R.id.testFarButton)
+        
+        archiveContainer = findViewById(R.id.archiveContainer)
+        archiveCountBadge = findViewById(R.id.archiveCountBadge)
+        emptyArchiveText = findViewById(R.id.emptyArchiveText)
 
         loadTargetData()
+        loadArchive()
 
         durationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -74,6 +87,7 @@ class DeviceManagerActivity : AppCompatActivity() {
             stopService(Intent(this, ScannerService::class.java))
             Toast.makeText(this, "Target dissociato", Toast.LENGTH_SHORT).show()
             loadTargetData()
+            loadArchive()
         }
 
         restartServiceButton.setOnClickListener {
@@ -101,6 +115,85 @@ class DeviceManagerActivity : AppCompatActivity() {
                 putExtra("extra_technology", targetTechText.text.toString())
             })
             Toast.makeText(this, "Broadcast ACTION_FAR inviato!", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun loadArchive() {
+        archiveContainer.removeAllViews()
+        val archive = TargetArchiveManager.getArchive(this)
+        
+        archiveCountBadge.text = "${archive.size} salvati"
+        
+        if (archive.isEmpty()) {
+            emptyArchiveText.visibility = View.VISIBLE
+            archiveContainer.visibility = View.GONE
+            return
+        }
+        
+        emptyArchiveText.visibility = View.GONE
+        archiveContainer.visibility = View.VISIBLE
+        
+        val prefs = getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
+        val currentTargetMac = prefs.getString("target_mac", null)
+        
+        for (item in archive) {
+            val view = LayoutInflater.from(this).inflate(R.layout.archive_list_item, archiveContainer, false)
+            val nameText = view.findViewById<TextView>(R.id.archiveNameText)
+            val techBadge = view.findViewById<TextView>(R.id.archiveTechBadge)
+            val activeBadge = view.findViewById<TextView>(R.id.archiveActiveBadge)
+            val detailsText = view.findViewById<TextView>(R.id.archiveDetailsText)
+            val actionButton = view.findViewById<Button>(R.id.archiveActionButton)
+            val deleteButton = view.findViewById<ImageButton>(R.id.archiveDeleteButton)
+            
+            val displayName = item.customName ?: item.name ?: "Sconosciuto"
+            nameText.text = displayName
+            
+            if (item.type == "BLE") {
+                techBadge.visibility = View.VISIBLE
+            } else {
+                techBadge.visibility = View.GONE
+            }
+            
+            val manufacturerStr = if (item.manufacturer != null && item.manufacturer != "N/D") " • ${item.manufacturer}" else ""
+            detailsText.text = "${item.address}$manufacturerStr"
+            
+            val isCurrent = currentTargetMac.equals(item.address, ignoreCase = true)
+            if (isCurrent) {
+                activeBadge.visibility = View.VISIBLE
+                actionButton.text = "DISSOCIA"
+                actionButton.setBackgroundColor(android.graphics.Color.parseColor("#FEF3C7"))
+                actionButton.setTextColor(android.graphics.Color.parseColor("#92400E"))
+                actionButton.setOnClickListener {
+                    unpairButton.performClick()
+                }
+            } else {
+                activeBadge.visibility = View.GONE
+                actionButton.text = "ATTIVA TARGET"
+                actionButton.setBackgroundColor(android.graphics.Color.parseColor("#3F51B5"))
+                actionButton.setTextColor(android.graphics.Color.WHITE)
+                actionButton.setOnClickListener {
+                    prefs.edit()
+                        .putString("target_mac", item.address)
+                        .putString("target_name", displayName)
+                        .putString("target_technology", item.type)
+                        .apply()
+                    TargetArchiveManager.addToArchive(this@DeviceManagerActivity, item.address, item.name, item.customName, item.type, item.category, item.manufacturer)
+                    Toast.makeText(this@DeviceManagerActivity, "Target attivato dall'archivio: ${item.address}", Toast.LENGTH_SHORT).show()
+                    loadTargetData()
+                    loadArchive()
+                    
+                    val serviceIntent = Intent(this@DeviceManagerActivity, ScannerService::class.java)
+                    startService(serviceIntent)
+                }
+            }
+            
+            deleteButton.setOnClickListener {
+                TargetArchiveManager.removeFromArchive(this@DeviceManagerActivity, item.address)
+                Toast.makeText(this@DeviceManagerActivity, "Dispositivo rimosso dall'archivio.", Toast.LENGTH_SHORT).show()
+                loadArchive()
+            }
+            
+            archiveContainer.addView(view)
         }
     }
 

@@ -54,6 +54,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var deviceListView: ListView
     private lateinit var dbLogHeader: View
     private lateinit var dbLogArrow: TextView
+    private lateinit var databaseLogContent: View
+    private lateinit var refreshDbButton: Button
     private lateinit var debugText: TextView
 
     private lateinit var adapter: DeviceListAdapter
@@ -113,6 +115,8 @@ class MainActivity : AppCompatActivity() {
         btnRssiNear = headerView.findViewById(R.id.btnRssiNear)
         dbLogHeader = headerView.findViewById(R.id.databaseLogHeader)
         dbLogArrow = headerView.findViewById(R.id.dbLogArrow)
+        databaseLogContent = headerView.findViewById(R.id.databaseLogContent)
+        refreshDbButton = headerView.findViewById(R.id.refreshDbButton)
         debugText = headerView.findViewById(R.id.debugText)
 
         val btManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
@@ -133,13 +137,17 @@ class MainActivity : AppCompatActivity() {
         deviceListView.adapter = adapter
 
         dbLogHeader.setOnClickListener {
-            if (debugText.visibility == View.VISIBLE) {
-                debugText.visibility = View.GONE
-                dbLogArrow.text = "▼"
+            if (databaseLogContent.visibility == View.VISIBLE) {
+                databaseLogContent.visibility = View.GONE
+                dbLogArrow.rotation = 0f
             } else {
-                debugText.visibility = View.VISIBLE
-                dbLogArrow.text = "▲"
+                databaseLogContent.visibility = View.VISIBLE
+                dbLogArrow.rotation = 180f
             }
+        }
+        
+        refreshDbButton.setOnClickListener {
+            Toast.makeText(this, "Aggiornamento Database SIG (Simulato per Preview)", Toast.LENGTH_SHORT).show()
         }
 
         rssiSeekBar.progress = 25
@@ -435,6 +443,8 @@ class MainActivity : AppCompatActivity() {
             .putString("target_name", displayName)
             .putString("target_technology", device.type)
             .apply()
+
+        TargetArchiveManager.addToArchive(this, device.address, device.name, device.customName, device.type, device.category, device.manufacturer)
 
         Toast.makeText(this, "Target impostato: $displayName [${device.address}]", Toast.LENGTH_SHORT).show()
 

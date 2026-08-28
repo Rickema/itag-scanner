@@ -233,5 +233,85 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Card 4: Archivio Target Memorizzati -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="1dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/card_stroke"
+            app:cardBackgroundColor="@color/card_background">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+                    
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Archivio Target Memorizzati"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:drawableStart="@android:drawable/ic_menu_recent_history"
+                        android:drawablePadding="6dp"
+                        android:drawableTint="@color/primary_indigo"
+                        android:textColor="@color/text_primary" />
+                    
+                    <TextView
+                        android:id="@+id/archiveCountBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 salvati"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/primary_indigo"
+                        android:background="@drawable/bg_chip_selected"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Storico di tutti i dispositivi già utilizzati come target. Puoi attivarne uno al volo oppure rimuoverlo dall'archivio."
+                    android:textSize="11sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:id="@+id/archiveContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+                    
+                <TextView
+                    android:id="@+id/emptyArchiveText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Nessun target salvato nell'archivio. Seleziona un dispositivo dalla scansione per aggiungerlo automaticamente."
+                    android:textSize="10sp"
+                    android:textColor="@color/text_secondary"
+                    android:background="#F9FAFB"
+                    android:padding="12dp"
+                    android:gravity="center"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
     </LinearLayout>
 </ScrollView>
