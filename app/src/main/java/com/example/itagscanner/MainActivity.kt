@@ -19,7 +19,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.ParcelUuid
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.ListView
@@ -29,6 +28,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -53,6 +54,9 @@ class MainActivity : AppCompatActivity() {
     private var includeClassic = false
     private var classicReceiverRegistered = false
 
+    private lateinit var dbManager: DatabaseManager
+    private lateinit var fingerprinter: BluetoothFingerprinter
+
     // Receiver per il discovery classico
     private val classicReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -76,6 +80,9 @@ class MainActivity : AppCompatActivity() {
             val address = device.address ?: "N/D"
             val rssi = result.rssi
 
+            // Esegui il fingerprinting
+            val classification = fingerprinter.classify(result)
+
             val uuids = result.scanRecord?.serviceUuids?.joinToString(", ") { uuidToName(it.uuid.toString()) } ?: "N/D"
             val manufacturer = getManufacturerString(result)
             val appearance = parseAppearance(result)
@@ -86,11 +93,14 @@ class MainActivity : AppCompatActivity() {
                 address = address,
                 rssi = rssi,
                 type = "BLE",
-                category = appearance, // usiamo appearance come categoria
+                category = classification.type,
                 uuids = uuids,
                 manufacturer = manufacturer,
                 appearance = appearance,
                 modelId = modelId,
+                classificationType = classification.type,
+                classificationBrand = classification.brand,
+                classificationConfidence = classification.confidence,
                 scanResult = result
             )
 
@@ -120,6 +130,9 @@ class MainActivity : AppCompatActivity() {
         rssiValueText = findViewById(R.id.rssiValueText)
         deviceListView = findViewById(R.id.deviceListView)
 
+        dbManager = DatabaseManager(this)
+        fingerprinter = BluetoothFingerprinter(dbManager)
+
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = bluetoothManager.adapter
         scanner = bluetoothAdapter.bluetoothLeScanner
@@ -145,7 +158,23 @@ class MainActivity : AppCompatActivity() {
 
         startButton.setOnClickListener {
             if (checkPermissions()) {
-                startScanning()
+                // Avvia il download/aggiornamento database in background
+                lifecycleScope.launch {
+                    val success = try {
+                        dbManager.ensureDatabases()
+                        true
+                    } catch (e: Exception) {
+                        false
+                    }
+                    if (success) {
+                        val info = dbManager.getDatabaseInfo()
+                        Toast.makeText(this@MainActivity, "Database caricati:\n$info", Toast.LENGTH_LONG).show()
+                        startScanning()
+                    } else {
+                        Toast.makeText(this@MainActivity, "Errore download DB, uso cache", Toast.LENGTH_LONG).show()
+                        startScanning() // usa comunque i dati in cache
+                    }
+                }
             }
         }
 
@@ -159,7 +188,11 @@ class MainActivity : AppCompatActivity() {
 
         updateStatus(false)
     }
-
+    private fun getDatabaseInfo(): String {
+    return "Company IDs: ${companyIdMap.size} voci\n" +
+           "Service UUIDs: ${serviceUuidMap.size} voci\n" +
+           "Appearance: ${appearanceMap.size} voci"
+    }
     private fun checkPermissions(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val permissions = mutableListOf(
@@ -192,7 +225,7 @@ class MainActivity : AppCompatActivity() {
 
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES) // per ricevere anche Scan Response
+            .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
             .build()
 
         scanner?.startScan(null, settings, scanCallback)
@@ -267,18 +300,7 @@ class MainActivity : AppCompatActivity() {
         val sb = StringBuilder()
         for (i in 0 until data.size()) {
             val companyId = data.keyAt(i)
-            val companyName = when (companyId) {
-                0x004C -> "Apple"
-                0x0075 -> "Samsung"
-                0x0006 -> "Microsoft"
-                0x000D -> "Texas Instruments"
-                0x000F -> "Broadcom"
-                0x001D -> "Google"
-                0x0059 -> "Nordic Semiconductor"
-                0x0131 -> "Tile"
-                0x0157 -> "Amazon"
-                else -> "0x${companyId.toString(16).uppercase()}"
-            }
+            val companyName = dbManager.getCompanyName(companyId) ?: "0x${companyId.toString(16).uppercase()}"
             sb.append("$companyName ($companyId)")
             if (i < data.size() - 1) sb.append("; ")
         }
@@ -286,21 +308,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun uuidToName(uuid: String): String {
-        val shortUuid = uuid.substring(4, 8).uppercase()
-        return when (shortUuid) {
-            "1800" -> "Generic Access"
-            "1801" -> "Generic Attribute"
-            "180A" -> "Device Information"
-            "180F" -> "Battery Service"
-            "180D" -> "Heart Rate"
-            "1812" -> "HID"
-            "FE2C" -> "Fast Pair"
-            "FFE0" -> "iTAG/Tracker"
-            else -> uuid
-        }
+        return dbManager.getServiceName(uuid) ?: uuid
     }
 
-    // Nuova funzione per estrarre l'Appearance dai dati EIR
     private fun parseAppearance(result: ScanResult): String {
         val scanRecord = result.scanRecord ?: return "N/D"
         val bytes = scanRecord.bytes
@@ -313,7 +323,7 @@ class MainActivity : AppCompatActivity() {
                 if (length >= 3) {
                     val appearanceValue = ((bytes[i + 2].toInt() and 0xFF) or
                                           ((bytes[i + 3].toInt() and 0xFF) shl 8))
-                    return appearanceToName(appearanceValue)
+                    return dbManager.getAppearanceName(appearanceValue)?.first ?: "N/D"
                 }
             }
             i += length + 1
@@ -321,34 +331,14 @@ class MainActivity : AppCompatActivity() {
         return "N/D"
     }
 
-    private fun appearanceToName(value: Int): String {
-        return when (value) {
-            0x0000 -> "Sconosciuto"
-            0x0040 -> "Telefono"
-            0x0080 -> "Computer"
-            0x00C0 -> "Orologio"
-            0x00C1 -> "Orologio sportivo"
-            0x0100 -> "Auricolari"
-            0x0104 -> "Cuffie"
-            0x0180 -> "Braccialetto"
-            0x0200 -> "Cardiofrequenzimetro"
-            0x0300 -> "Tracker"
-            else -> "0x${value.toString(16).uppercase()}"
-        }
-    }
-
-    // Estrae Model ID da Fast Pair (Service Data per FE2C)
     private fun parseFastPairModelId(result: ScanResult): String {
         val scanRecord = result.scanRecord ?: return "N/D"
         val serviceData = scanRecord.serviceData
         if (serviceData == null || serviceData.isEmpty()) return "N/D"
-        // Cerchiamo UUID FE2C
         val fastPairUuid = ParcelUuid.fromString("0000FE2C-0000-1000-8000-00805F9B34FB")
         val data = serviceData[fastPairUuid] ?: return "N/D"
         if (data.size < 3) return "N/D"
-        // Model ID è di 3 byte (little-endian)
-        val modelId = String.format("%02X:%02X:%02X", data[0], data[1], data[2])
-        return modelId
+        return String.format("%02X:%02X:%02X", data[0], data[1], data[2])
     }
 
     private fun onDeviceSelected(item: DeviceItem) {

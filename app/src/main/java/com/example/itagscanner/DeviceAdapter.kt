@@ -36,8 +36,9 @@ class DeviceAdapter(
 
         val item = devices[position]
 
+        // Mostra il nome (possibilmente personalizzato in futuro)
         holder.nameText.text = "Nome: ${item.name}"
-        holder.typeText.text = "Tipo: ${item.type}${if (item.category.isNotEmpty()) " - ${item.category}" else ""}"
+        holder.typeText.text = "Tipo: ${item.classificationType} (${item.classificationConfidence}%)"
         holder.appearanceText.text = "Aspetto: ${item.appearance}"
         holder.macText.text = "MAC: ${item.address}"
         holder.rssiText.text = "RSSI: ${item.rssi} dBm"
