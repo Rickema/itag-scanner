@@ -14,11 +14,58 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Configurazione Target &amp; Tracking"
+            android:text="Gestione Dispositivi & Tracking"
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="@color/primary_indigo"
             android:layout_marginBottom="14dp" />
+
+        <!-- Tab Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:orientation="horizontal"
+            android:background="#E0E7FF"
+            android:layout_marginBottom="16dp"
+            android:padding="2dp">
+            <TextView
+                android:id="@+id/tabDevice"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Dispositivo"
+                android:gravity="center"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="#3F51B5"
+                android:background="@drawable/bg_chip_selected" />
+            <TextView
+                android:id="@+id/tabTracking"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Tracking"
+                android:gravity="center"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+            <TextView
+                android:id="@+id/tabMacrodroid"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="MacroDroid"
+                android:gravity="center"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+        </LinearLayout>
+
+        <!-- Container Dispositivo -->
+        <LinearLayout
+            android:id="@+id/tabDeviceContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="visible">
 
         <!-- Card 1: Target Attivo -->
         <com.google.android.material.card.MaterialCardView
@@ -88,6 +135,16 @@
                     android:layout_marginTop="12dp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+        
+        </LinearLayout> <!-- End tabDeviceContent -->
+
+        <!-- Container Tracking -->
+        <LinearLayout
+            android:id="@+id/tabTrackingContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
 
         <!-- Card 2: Configurazione Cicli di Scansione e Pausa -->
         <com.google.android.material.card.MaterialCardView
@@ -166,6 +223,16 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        </LinearLayout> <!-- End tabTrackingContent -->
+
+        <!-- Container MacroDroid -->
+        <LinearLayout
+            android:id="@+id/tabMacrodroidContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
         <!-- Card 3: Test Intent MacroDroid -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -232,6 +299,8 @@
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout> <!-- End tabMacrodroidContent -->
 
         <!-- Card 4: Archivio Target Memorizzati -->
         <com.google.android.material.card.MaterialCardView

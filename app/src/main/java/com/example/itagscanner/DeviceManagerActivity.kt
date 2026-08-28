@@ -31,6 +31,13 @@ class DeviceManagerActivity : AppCompatActivity() {
     private lateinit var archiveCountBadge: TextView
     private lateinit var emptyArchiveText: TextView
 
+    private lateinit var tabDevice: TextView
+    private lateinit var tabTracking: TextView
+    private lateinit var tabMacrodroid: TextView
+    private lateinit var tabDeviceContent: View
+    private lateinit var tabTrackingContent: View
+    private lateinit var tabMacrodroidContent: View
+
     private var scanDurationSec = 5
     private var scanIntervalSec = 20
 
@@ -53,6 +60,17 @@ class DeviceManagerActivity : AppCompatActivity() {
         archiveContainer = findViewById(R.id.archiveContainer)
         archiveCountBadge = findViewById(R.id.archiveCountBadge)
         emptyArchiveText = findViewById(R.id.emptyArchiveText)
+        
+        tabDevice = findViewById(R.id.tabDevice)
+        tabTracking = findViewById(R.id.tabTracking)
+        tabMacrodroid = findViewById(R.id.tabMacrodroid)
+        tabDeviceContent = findViewById(R.id.tabDeviceContent)
+        tabTrackingContent = findViewById(R.id.tabTrackingContent)
+        tabMacrodroidContent = findViewById(R.id.tabMacrodroidContent)
+
+        tabDevice.setOnClickListener { selectTab("device") }
+        tabTracking.setOnClickListener { selectTab("tracking") }
+        tabMacrodroid.setOnClickListener { selectTab("macrodroid") }
 
         loadTargetData()
         loadArchive()
@@ -118,6 +136,41 @@ class DeviceManagerActivity : AppCompatActivity() {
         }
     }
     
+    private fun selectTab(tab: String) {
+        val selectedBg = R.drawable.bg_chip_selected
+        val normalColor = android.graphics.Color.parseColor("#64748B")
+        val selectedColor = android.graphics.Color.parseColor("#3F51B5")
+
+        tabDevice.setBackgroundResource(0)
+        tabDevice.setTextColor(normalColor)
+        tabTracking.setBackgroundResource(0)
+        tabTracking.setTextColor(normalColor)
+        tabMacrodroid.setBackgroundResource(0)
+        tabMacrodroid.setTextColor(normalColor)
+        
+        tabDeviceContent.visibility = View.GONE
+        tabTrackingContent.visibility = View.GONE
+        tabMacrodroidContent.visibility = View.GONE
+
+        when (tab) {
+            "device" -> {
+                tabDevice.setBackgroundResource(selectedBg)
+                tabDevice.setTextColor(selectedColor)
+                tabDeviceContent.visibility = View.VISIBLE
+            }
+            "tracking" -> {
+                tabTracking.setBackgroundResource(selectedBg)
+                tabTracking.setTextColor(selectedColor)
+                tabTrackingContent.visibility = View.VISIBLE
+            }
+            "macrodroid" -> {
+                tabMacrodroid.setBackgroundResource(selectedBg)
+                tabMacrodroid.setTextColor(selectedColor)
+                tabMacrodroidContent.visibility = View.VISIBLE
+            }
+        }
+    }
+
     private fun loadArchive() {
         archiveContainer.removeAllViews()
         val archive = TargetArchiveManager.getArchive(this)

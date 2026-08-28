@@ -45,6 +45,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var stopButton: Button
     private lateinit var manageCard: View
     private lateinit var targetActiveDot: View
+    private lateinit var activeTargetBanner: View
+    private lateinit var bannerTargetName: TextView
+    private lateinit var bannerTargetTechBadge: TextView
+    private lateinit var bannerStateText: TextView
+    private lateinit var bannerStateDot: View
+    private lateinit var bannerClearTarget: View
+    private lateinit var appBarTargetBadge: TextView
     private lateinit var includeClassicSwitch: SwitchMaterial
     private lateinit var rssiSeekBar: SeekBar
     private lateinit var rssiBadgeText: TextView
@@ -95,6 +102,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         deviceListView = findViewById(R.id.deviceListView)
+        appBarTargetBadge = findViewById(R.id.appBarTargetBadge)
+        activeTargetBanner = findViewById(R.id.activeTargetBanner)
+        bannerTargetName = findViewById(R.id.bannerTargetName)
+        bannerTargetTechBadge = findViewById(R.id.bannerTargetTechBadge)
+        bannerStateText = findViewById(R.id.bannerStateText)
+        bannerStateDot = findViewById(R.id.bannerStateDot)
+        bannerClearTarget = findViewById(R.id.bannerClearTarget)
 
         val headerView = layoutInflater.inflate(R.layout.header_main_controls, deviceListView, false)
         deviceListView.addHeaderView(headerView, null, false)
@@ -146,8 +160,38 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
+        bannerClearTarget.setOnClickListener {
+            getSharedPreferences("itag_prefs", Context.MODE_PRIVATE).edit()
+                .remove("target_mac")
+                .remove("target_name")
+                .remove("target_technology")
+                .apply()
+            updateTargetStatus()
+            Toast.makeText(this, "Target rimosso. Monitoraggio fermato.", Toast.LENGTH_SHORT).show()
+        }
+
         refreshDbButton.setOnClickListener {
-            Toast.makeText(this, "Aggiornamento Database SIG (Simulato per Preview)", Toast.LENGTH_SHORT).show()
+            refreshDbButton.isEnabled = false
+            refreshDbButton.text = "Download..."
+            debugText.text = "Preparazione al download...\n"
+            
+            dbManager.forceRefreshDatabases(
+                onProgress = { msg ->
+                    runOnUiThread { debugText.append(msg) }
+                },
+                onComplete = { success ->
+                    runOnUiThread {
+                        refreshDbButton.isEnabled = true
+                        refreshDbButton.text = "Aggiorna DB"
+                        if (success) {
+                            Toast.makeText(this@MainActivity, "Database Bluetooth aggiornato", Toast.LENGTH_SHORT).show()
+                            debugText.text = dbManager.getDebugInfo()
+                        } else {
+                            Toast.makeText(this@MainActivity, "Errore aggiornamento database", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            )
         }
 
         rssiSeekBar.progress = 25
@@ -219,9 +263,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateTargetStatus() {
-        val targetMac = getSharedPreferences("itag_prefs", Context.MODE_PRIVATE).getString("target_mac", null)
+        val prefs = getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
+        val targetMac = prefs.getString("target_mac", null)
         val hasTarget = !targetMac.isNullOrEmpty()
         targetActiveDot.visibility = if (hasTarget) View.VISIBLE else View.GONE
+        
+        if (hasTarget) {
+            val name = prefs.getString("target_name", "Target")
+            val type = prefs.getString("target_technology", "BLE")
+            activeTargetBanner.visibility = View.VISIBLE
+            appBarTargetBadge.visibility = View.VISIBLE
+            
+            bannerTargetName.text = name
+            
+            if (type == "BLE") {
+                bannerTargetTechBadge.text = "SOLO BLE"
+                bannerTargetTechBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#3B82F6"))
+                bannerTargetTechBadge.setTextColor(android.graphics.Color.WHITE)
+            } else {
+                bannerTargetTechBadge.text = "SOLO CLASSICO"
+                bannerTargetTechBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#F59E0B"))
+                bannerTargetTechBadge.setTextColor(android.graphics.Color.parseColor("#030712"))
+            }
+            
+            if (isScanning) {
+                bannerStateText.text = "In scansione..."
+                bannerStateDot.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#4ADE80"))
+            } else {
+                bannerStateText.text = "Pausa ciclo"
+                bannerStateDot.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#818CF8"))
+            }
+        } else {
+            activeTargetBanner.visibility = View.GONE
+            appBarTargetBadge.visibility = View.GONE
+        }
     }
 
     private fun updatePresetChipHighlights(threshold: Int) {

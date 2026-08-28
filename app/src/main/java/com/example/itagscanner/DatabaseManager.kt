@@ -197,26 +197,145 @@ class DatabaseManager(private val context: Context) {
     private fun loadCachedDatabase() {
         try {
             val prefs = context.getSharedPreferences("sig_database_cache", Context.MODE_PRIVATE)
-            val jsonStr = prefs.getString("companies_json", null) ?: return
-            val jsonArray = JSONArray(jsonStr)
-            for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
-                val code = obj.optInt("code", -1)
-                val name = obj.optString("name", "")
-                if (code >= 0 && name.isNotEmpty()) {
-                    companyIdMap[code] = name
+            
+            val compStr = prefs.getString("companies_json", null)
+            if (compStr != null) {
+                val jsonArray = JSONArray(compStr)
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    val code = obj.optInt("code", -1)
+                    val name = obj.optString("name", "")
+                    if (code >= 0 && name.isNotEmpty()) {
+                        companyIdMap[code] = name
+                    }
                 }
             }
+            
+            val appStr = prefs.getString("appearance_json", null)
+            if (appStr != null) {
+                val jsonArray = JSONArray(appStr)
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    val code = obj.optInt("code", -1)
+                    val name = obj.optString("name", "")
+                    if (code >= 0 && name.isNotEmpty()) {
+                        appearanceMap[code] = Pair(name, "")
+                    }
+                }
+            }
+
+            val uuidStr = prefs.getString("services_json", null)
+            if (uuidStr != null) {
+                val jsonArray = JSONArray(uuidStr)
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    val uuid = obj.optString("uuid", "")
+                    val name = obj.optString("name", "")
+                    if (uuid.isNotEmpty() && name.isNotEmpty()) {
+                        serviceUuidMap[uuid] = name
+                    }
+                }
+            }
+            
         } catch (e: Exception) {
             Log.e("DatabaseManager", "Errore caricamento cache SIG: ${e.message}")
         }
     }
 
     /**
-     * Sincronizzazione dinamica in background senza blocchi né errori
+     * Esegue il download reale dei database YAML di Bluetooth SIG dal repository Bitbucket
      */
-    fun syncDatabaseFromRemote() {
-        // Database locale completo gia pronto offline
+    fun forceRefreshDatabases(onProgress: (String) -> Unit, onComplete: (Boolean) -> Unit) {
+        executor.execute {
+            try {
+                val prefs = context.getSharedPreferences("sig_database_cache", Context.MODE_PRIVATE)
+                
+                onProgress("Avvio connessione a Bitbucket Bluetooth SIG...\n")
+                
+                onProgress("Scaricamento company_identifiers.yaml...\n")
+                val compUrl = "https://bitbucket.org/bluetooth-SIG/public/raw/main/assigned_numbers/company_identifiers/company_identifiers.yaml"
+                val compConnection = URL(compUrl).openConnection() as HttpURLConnection
+                compConnection.connectTimeout = 5000
+                compConnection.readTimeout = 10000
+                val compStr = compConnection.inputStream.bufferedReader().use { it.readText() }
+                
+                val compRegex = Regex("- value:\\s*0x([0-9a-fA-F]+)\\s*name:\\s*['\"]?([^'\"\\n]+)['\"]?")
+                val compJsonArray = JSONArray()
+                var compCount = 0
+                compRegex.findAll(compStr).forEach {
+                    val hex = it.groupValues[1].toIntOrNull(16)
+                    val name = it.groupValues[2].trim()
+                    if (hex != null) {
+                        companyIdMap[hex] = name
+                        compCount++
+                        val obj = JSONObject()
+                        obj.put("code", hex)
+                        obj.put("name", name)
+                        compJsonArray.put(obj)
+                    }
+                }
+                onProgress("Parsing $compCount identificatori azienda completato.\n")
+                
+                onProgress("Scaricamento appearance_values.yaml...\n")
+                val appUrl = "https://bitbucket.org/bluetooth-SIG/public/raw/main/assigned_numbers/core/appearance_values.yaml"
+                val appConnection = URL(appUrl).openConnection() as HttpURLConnection
+                appConnection.connectTimeout = 5000
+                appConnection.readTimeout = 10000
+                val appStr = appConnection.inputStream.bufferedReader().use { it.readText() }
+                
+                val appRegex = Regex("- category:\\s*0x([0-9a-fA-F]+)\\s*name:\\s*['\"]?([^'\"\\n]+)['\"]?")
+                var appCount = 0
+                val appJsonArray = JSONArray()
+                appRegex.findAll(appStr).forEach {
+                    val hex = it.groupValues[1].toIntOrNull(16)
+                    val name = it.groupValues[2].trim()
+                    if (hex != null) {
+                        appearanceMap[hex] = Pair(name, "")
+                        appCount++
+                        val obj = JSONObject()
+                        obj.put("code", hex)
+                        obj.put("name", name)
+                        appJsonArray.put(obj)
+                    }
+                }
+                onProgress("Parsing $appCount valori GAP completato.\n")
+                
+                onProgress("Scaricamento service_uuids.yaml...\n")
+                val uuidUrl = "https://bitbucket.org/bluetooth-SIG/public/raw/main/assigned_numbers/uuids/service_uuids.yaml"
+                val uuidConnection = URL(uuidUrl).openConnection() as HttpURLConnection
+                uuidConnection.connectTimeout = 5000
+                uuidConnection.readTimeout = 10000
+                val uuidStr = uuidConnection.inputStream.bufferedReader().use { it.readText() }
+                
+                val uuidRegex = Regex("- uuid:\\s*0x([0-9a-fA-F]+)\\s*name:\\s*['\"]?([^'\"\\n]+)['\"]?")
+                var uuidCount = 0
+                val uuidJsonArray = JSONArray()
+                uuidRegex.findAll(uuidStr).forEach {
+                    val hexStr = it.groupValues[1].padStart(4, '0').lowercase()
+                    val name = it.groupValues[2].trim()
+                    serviceUuidMap[hexStr] = name
+                    uuidCount++
+                    val obj = JSONObject()
+                    obj.put("uuid", hexStr)
+                    obj.put("name", name)
+                    uuidJsonArray.put(obj)
+                }
+                onProgress("Parsing $uuidCount UUID completato.\n")
+                
+                prefs.edit()
+                    .putString("companies_json", compJsonArray.toString())
+                    .putString("appearance_json", appJsonArray.toString())
+                    .putString("services_json", uuidJsonArray.toString())
+                    .putLong("last_update", System.currentTimeMillis())
+                    .apply()
+                    
+                onProgress("Salvataggio in cache completato.\nDatabase SIG Offline Pronto.")
+                onComplete(true)
+            } catch (e: Exception) {
+                onProgress("Errore durante l'aggiornamento: ${e.message}\n")
+                onComplete(false)
+            }
+        }
     }
 
     fun ensureDatabases(callback: () -> Unit) {
@@ -537,7 +656,17 @@ class DatabaseManager(private val context: Context) {
     }
 
     fun getDebugInfo(): String {
+        val prefs = context.getSharedPreferences("sig_database_cache", Context.MODE_PRIVATE)
+        val lastUpdate = prefs.getLong("last_update", 0L)
+        val dateStr = if (lastUpdate > 0) {
+            val format = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
+            format.format(java.util.Date(lastUpdate))
+        } else {
+            "Mai aggiornato"
+        }
+        
         return "Database SIG Offline Integrato: ${companyIdMap.size} Produttori, ${serviceUuidMap.size / 2} Servizi UUID, ${appearanceMap.size} Aspetti GAP.\n" +
-                "Stato Fingerprinting: PRONTO E ATTIVO PER TUTTI I DISPOSITIVI SENZA EMOJI."
+               "Ultimo aggiornamento da server: $dateStr\n" +
+               "Stato Fingerprinting: PRONTO E ATTIVO."
     }
 }
