@@ -6,34 +6,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.yaml.snakeyaml.Yaml
 import java.io.File
-import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class DatabaseManager(private val context: Context) {
 
-    fun getDebugInfo(): String {
-    val cacheDir = File(context.filesDir, CACHE_DIR)
-    val companyFile = File(cacheDir, COMPANY_IDS_FILE)
-    val serviceFile = File(cacheDir, SERVICE_UUIDS_FILE)
-    val appearanceFile = File(cacheDir, APPEARANCE_VALUES_FILE)
-
-    return buildString {
-        appendLine("Directory: ${cacheDir.absolutePath}")
-        appendLine("Company file: esiste=${companyFile.exists()}, dimensione=${if (companyFile.exists()) companyFile.length() else 0} bytes")
-        appendLine("Service file: esiste=${serviceFile.exists()}, dimensione=${if (serviceFile.exists()) serviceFile.length() else 0} bytes")
-        appendLine("Appearance file: esiste=${appearanceFile.exists()}, dimensione=${if (appearanceFile.exists()) appearanceFile.length() else 0} bytes")
-        appendLine("Company IDs caricati: ${companyIdMap.size}")
-        appendLine("Service UUIDs caricati: ${serviceUuidMap.size}")
-        appendLine("Appearance caricati: ${appearanceMap.size}")
-        if (lastError.isNotEmpty()) {
-            appendLine("Ultimo errore: $lastError")
-        }
-    }
-}
     companion object {
         private const val TAG = "DatabaseManager"
         private const val COMPANY_IDS_URL = "https://bitbucket.org/bluetooth-SIG/public/raw/main/assigned_numbers/company_identifiers/company_identifiers.yaml"
@@ -50,13 +27,17 @@ class DatabaseManager(private val context: Context) {
     // Mappe in memoria
     var companyIdMap: Map<Int, String> = emptyMap()
         private set
-    var serviceUuidMap: Map<String, String> = emptyMap()  // chiave: uuid breve (es. "180D"), valore: nome
+    var serviceUuidMap: Map<String, String> = emptyMap()
         private set
-    var appearanceMap: Map<Int, Pair<String, String>> = emptyMap()  // chiave: valore categoria (0x000), valore: (nome categoria, eventuale sottocategoria)
+    var appearanceMap: Map<Int, Pair<String, String>> = emptyMap()
+        private set
+
+    // Variabile per debug
+    var lastError: String = ""
         private set
 
     /**
-     * Verifica se i database devono essere aggiornati (primo avvio o dopo 30 giorni)
+     * Verifica se i database devono essere aggiornati
      */
     private fun shouldUpdate(): Boolean {
         val prefs = context.getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
@@ -65,8 +46,8 @@ class DatabaseManager(private val context: Context) {
     }
 
     /**
-     * Scarica e salva un file se non esiste o se deve essere aggiornato.
-     * Restituisce true se il file è stato scaricato/aggiornato, false altrimenti.
+     * Scarica un file da un URL e lo salva in destFile.
+     * Restituisce true se il download è riuscito.
      */
     private suspend fun downloadFile(urlString: String, destFile: File): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -99,6 +80,7 @@ class DatabaseManager(private val context: Context) {
      * Se il download fallisce, utilizza eventuali file già presenti.
      */
     suspend fun ensureDatabases() {
+        lastError = ""
         val cacheDir = File(context.filesDir, CACHE_DIR)
         if (!cacheDir.exists()) cacheDir.mkdirs()
 
@@ -107,29 +89,31 @@ class DatabaseManager(private val context: Context) {
         val appearanceFile = File(cacheDir, APPEARANCE_VALUES_FILE)
 
         if (shouldUpdate() || !companyFile.exists() || !serviceFile.exists() || !appearanceFile.exists()) {
-        var downloaded = false
-        try {
-            if (!companyFile.exists() || shouldUpdate()) {
-                if (downloadFile(COMPANY_IDS_URL, companyFile)) downloaded = true
-                else lastError += "Download company fallito; "
+            var downloaded = false
+            try {
+                if (!companyFile.exists() || shouldUpdate()) {
+                    if (downloadFile(COMPANY_IDS_URL, companyFile)) downloaded = true
+                    else lastError += "Download company fallito; "
+                }
+                if (!serviceFile.exists() || shouldUpdate()) {
+                    if (downloadFile(SERVICE_UUIDS_URL, serviceFile)) downloaded = true
+                    else lastError += "Download service fallito; "
+                }
+                if (!appearanceFile.exists() || shouldUpdate()) {
+                    if (downloadFile(APPEARANCE_VALUES_URL, appearanceFile)) downloaded = true
+                    else lastError += "Download appearance fallito; "
+                }
+            } catch (e: Exception) {
+                lastError += "Eccezione: ${e.message}"
             }
-            if (!serviceFile.exists() || shouldUpdate()) {
-                if (downloadFile(SERVICE_UUIDS_URL, serviceFile)) downloaded = true
-                else lastError += "Download service fallito; "
+            if (downloaded) {
+                val prefs = context.getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
+                prefs.edit().putLong(LAST_UPDATE_KEY, System.currentTimeMillis()).apply()
             }
-            if (!appearanceFile.exists() || shouldUpdate()) {
-                if (downloadFile(APPEARANCE_VALUES_URL, appearanceFile)) downloaded = true
-                else lastError += "Download appearance fallito; "
-            }
-        } catch (e: Exception) {
-            lastError += "Eccezione: ${e.message}"
         }
-        if (downloaded) {
-            val prefs = context.getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putLong(LAST_UPDATE_KEY, System.currentTimeMillis()).apply()
-        }
-    }
-    loadMapsFromFiles(File(context.filesDir, CACHE_DIR))
+
+        // Carica i file in memoria (se presenti)
+        loadMapsFromFiles(cacheDir)
     }
 
     /**
@@ -154,7 +138,10 @@ class DatabaseManager(private val context: Context) {
                 companyIdMap = map
             } catch (e: Exception) {
                 Log.e(TAG, "Errore parsing company_identifiers: ${e.message}")
+                lastError += "Parsing company error: ${e.message}; "
             }
+        } else {
+            lastError += "File company non trovato; "
         }
 
         // Service UUIDs
@@ -166,11 +153,9 @@ class DatabaseManager(private val context: Context) {
                 val list = data["uuids"] as? List<Map<String, Any>> ?: emptyList()
                 val map = mutableMapOf<String, String>()
                 for (entry in list) {
-                    val uuidHex = entry["uuid"]?.toString()?.removePrefix("0x")?.uppercase(Locale.US) ?: continue
+                    val uuidHex = entry["uuid"]?.toString()?.removePrefix("0x")?.uppercase() ?: continue
                     val name = entry["name"]?.toString() ?: continue
-                    // Memorizza sia la versione breve (16-bit) che quella completa
                     map[uuidHex] = name
-                    // Se è un UUID a 16 bit, aggiungi anche la forma completa
                     if (uuidHex.length <= 4) {
                         val fullUuid = "0000${uuidHex.lowercase()}-0000-1000-8000-00805f9b34fb"
                         map[fullUuid] = name
@@ -179,7 +164,10 @@ class DatabaseManager(private val context: Context) {
                 serviceUuidMap = map
             } catch (e: Exception) {
                 Log.e(TAG, "Errore parsing service_uuids: ${e.message}")
+                lastError += "Parsing service error: ${e.message}; "
             }
+        } else {
+            lastError += "File service non trovato; "
         }
 
         // Appearance values
@@ -195,25 +183,43 @@ class DatabaseManager(private val context: Context) {
                     val name = entry["name"]?.toString() ?: continue
                     val subcategory = entry["subcategory"] as? List<Map<String, Any>>
                     val subName = if (subcategory != null && subcategory.isNotEmpty()) {
-                        // Prendi la prima sottocategoria come esempio (o gestisci diversamente)
                         subcategory[0]["name"]?.toString() ?: ""
-                    } else {
-                        ""
-                    }
+                    } else ""
                     map[categoryHex] = Pair(name, subName)
                 }
                 appearanceMap = map
             } catch (e: Exception) {
                 Log.e(TAG, "Errore parsing appearance_values: ${e.message}")
+                lastError += "Parsing appearance error: ${e.message}; "
+            }
+        } else {
+            lastError += "File appearance non trovato; "
+        }
+    }
+
+    /**
+     * Restituisce una stringa con informazioni di debug sullo stato dei database.
+     */
+    fun getDebugInfo(): String {
+        val cacheDir = File(context.filesDir, CACHE_DIR)
+        val companyFile = File(cacheDir, COMPANY_IDS_FILE)
+        val serviceFile = File(cacheDir, SERVICE_UUIDS_FILE)
+        val appearanceFile = File(cacheDir, APPEARANCE_VALUES_FILE)
+
+        return buildString {
+            appendLine("Directory: ${cacheDir.absolutePath}")
+            appendLine("Company file: esiste=${companyFile.exists()}, dimensione=${if (companyFile.exists()) companyFile.length() else 0} bytes")
+            appendLine("Service file: esiste=${serviceFile.exists()}, dimensione=${if (serviceFile.exists()) serviceFile.length() else 0} bytes")
+            appendLine("Appearance file: esiste=${appearanceFile.exists()}, dimensione=${if (appearanceFile.exists()) appearanceFile.length() else 0} bytes")
+            appendLine("Company IDs caricati: ${companyIdMap.size}")
+            appendLine("Service UUIDs caricati: ${serviceUuidMap.size}")
+            appendLine("Appearance caricati: ${appearanceMap.size}")
+            if (lastError.isNotEmpty()) {
+                appendLine("Ultimo errore: $lastError")
             }
         }
     }
-    
-    fun getDatabaseInfo(): String {
-    return "Company IDs: ${companyIdMap.size} voci\n" +
-           "Service UUIDs: ${serviceUuidMap.size} voci\n" +
-           "Appearance: ${appearanceMap.size} voci"
-    }
+
     /**
      * Restituisce il nome del produttore per un Company ID.
      */
@@ -223,7 +229,7 @@ class DatabaseManager(private val context: Context) {
      * Restituisce il nome del servizio per un UUID (breve o completo).
      */
     fun getServiceName(uuid: String): String? {
-        val key = uuid.uppercase(Locale.US).removePrefix("0x")
+        val key = uuid.uppercase().removePrefix("0x")
         return serviceUuidMap[key] ?: serviceUuidMap["0000${key.lowercase()}-0000-1000-8000-00805f9b34fb"]
     }
 
