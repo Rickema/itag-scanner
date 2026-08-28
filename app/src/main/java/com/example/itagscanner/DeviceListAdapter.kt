@@ -15,6 +15,7 @@ class DeviceListAdapter(
     private val items: List<DeviceItem>,
     private val targetMacProvider: () -> String?,
     private val onSelectClick: (DeviceItem) -> Unit,
+    private val onInspectClick: (DeviceItem) -> Unit,
     private val onRenameClick: (DeviceItem) -> Unit
 ) : BaseAdapter() {
 
@@ -36,10 +37,10 @@ class DeviceListAdapter(
         val modelIdText = view.findViewById<TextView>(R.id.modelIdText)
         val rssiDot = view.findViewById<View>(R.id.rssiDot)
         val rssiText = view.findViewById<TextView>(R.id.rssiText)
+        val inspectButton = view.findViewById<Button>(R.id.inspectButton)
         val selectButton = view.findViewById<Button>(R.id.selectButton)
 
-        // 1. Gestione Nome Dispositivo secondo richiesta utente:
-        // "nel nome non mettere BLE DEVICE come nome, basta il piccolo tag in alto che va bene, lascia 'sconosciuto'."
+        // 1. Gestione Nome Dispositivo ("Sconosciuto" se vuoto o generic)
         val rawName = item.name?.trim() ?: ""
         val isGeneric = rawName.isEmpty() ||
                 rawName.equals("BLE Device", ignoreCase = true) ||
@@ -65,9 +66,8 @@ class DeviceListAdapter(
             technologyBadge.setBackgroundResource(R.drawable.bg_badge_classic)
         }
 
-        // 3. Classificazione specifica reale (auricolari, smartphone, tracker, pc, ecc.)
-        val emoji = if (item.iconEmoji.isNotEmpty()) "${item.iconEmoji} " else ""
-        typeText.text = "$emoji${item.classificationType} (${item.classificationConfidence}%)"
+        // 3. Classificazione specifica reale (senza emoji)
+        typeText.text = "${item.classificationType} (${item.classificationConfidence}%)"
 
         // 4. Produttore
         manufacturerText.text = "Produttore: ${item.manufacturer}"
@@ -88,12 +88,13 @@ class DeviceListAdapter(
             modelIdText.visibility = View.GONE
         }
 
-        // 7. Segnale RSSI con indicatore a semaforo
-        rssiText.text = "Segnale RSSI: ${item.rssi} dBm (MAC: ${item.address})"
+        // 7. Segnale RSSI + Distanza stimata in metri
+        val distStr = if (item.estimatedDistance != "N/D") " (~${item.estimatedDistance})" else ""
+        rssiText.text = "${item.rssi} dBm$distStr [${item.address}]"
         val dotColor = when {
-            item.rssi >= -65 -> Color.parseColor("#10B981") // Verde (forte)
-            item.rssi >= -80 -> Color.parseColor("#F59E0B") // Giallo (medio)
-            else -> Color.parseColor("#94A3B8") // Grigio (debole)
+            item.rssi >= -65 -> Color.parseColor("#10B981") // Verde
+            item.rssi >= -80 -> Color.parseColor("#F59E0B") // Giallo
+            else -> Color.parseColor("#94A3B8") // Grigio
         }
         rssiDot.backgroundTintList = ColorStateList.valueOf(dotColor)
 
@@ -105,15 +106,18 @@ class DeviceListAdapter(
             selectButton.text = "TARGET ATTIVO"
             selectButton.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#10B981"))
         } else {
-            selectButton.text = "IMPOSTA TARGET"
+            selectButton.text = "TARGET"
             selectButton.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#3F51B5"))
+        }
+
+        inspectButton.setOnClickListener {
+            onInspectClick(item)
         }
 
         selectButton.setOnClickListener {
             onSelectClick(item)
         }
 
-        // Tocco prolungato o tocco su card per rinomina rapida
         view.setOnLongClickListener {
             onRenameClick(item)
             true

@@ -12,7 +12,8 @@ export interface DeviceItem {
   classificationType: string;
   classificationBrand: string;
   classificationConfidence: number;
-  iconEmoji?: string;
+  estimatedDistance?: string;
+  isBonded?: boolean;
   scanResult?: any;
   bluetoothDevice?: any;
 }
@@ -22,7 +23,6 @@ export interface Classification {
   brand: string;     // es. "Apple", "Samsung", "Sconosciuto"
   model: string;     // eventuale modello (es. "Fast Pair device")
   confidence: number; // 0..100
-  iconEmoji?: string;
 }
 
 export interface SavedTargetDevice {
@@ -39,9 +39,9 @@ export interface SavedTargetDevice {
 }
 
 export interface TrackingSettings {
-  scanIntervalSec: number; // ogni quanto viene fatta la scansione (pausa tra cicli, es. 20s)
-  scanDurationSec: number; // per quanto tempo deve durare la scansione attiva (es. 5s)
-  batterySaverMode: boolean; // modalità risparmio energetico attiva
+  scanIntervalSec: number;
+  scanDurationSec: number;
+  batterySaverMode: boolean;
 }
 
 export interface TrackingCycleState {

@@ -3,7 +3,11 @@ package com.example.itagscanner
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.BroadcastReceiver
@@ -29,6 +33,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.switchmaterial.SwitchMaterial
+import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
 
@@ -58,9 +63,8 @@ class MainActivity : AppCompatActivity() {
 
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var isScanning = false
-    private var minRssiThreshold = -75 // Valore predefinito ottimale (-75 dBm come nella preview)
+    private var minRssiThreshold = -75
 
-    // Handler per sincronizzazione fluida della lista senza salti né sfarfallii
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingUpdate = false
     private val updateRunnable = Runnable {
@@ -90,11 +94,9 @@ class MainActivity : AppCompatActivity() {
 
         deviceListView = findViewById(R.id.deviceListView)
 
-        // Gonfia l'header con tutte le card dei controlli esattamente conformi alla preview
         val headerView = layoutInflater.inflate(R.layout.header_main_controls, deviceListView, false)
         deviceListView.addHeaderView(headerView, null, false)
 
-        // Associa tutti i componenti dell'header
         statusText = headerView.findViewById(R.id.statusText)
         statusIndicatorDot = headerView.findViewById(R.id.statusIndicatorDot)
         statusCountBadge = headerView.findViewById(R.id.statusCountBadge)
@@ -125,11 +127,11 @@ class MainActivity : AppCompatActivity() {
                 getSharedPreferences("itag_prefs", Context.MODE_PRIVATE).getString("target_mac", null)
             },
             onSelectClick = { device -> selectTarget(device) },
+            onInspectClick = { device -> inspectDevice(device) },
             onRenameClick = { device -> showRenameDialog(device) }
         )
         deviceListView.adapter = adapter
 
-        // Espansione / Riduzione Log Database
         dbLogHeader.setOnClickListener {
             if (debugText.visibility == View.VISIBLE) {
                 debugText.visibility = View.GONE
@@ -140,8 +142,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Configurazione SeekBar RSSI (0..50 mappato su -100..-50 dBm)
-        rssiSeekBar.progress = 25 // Corrisponde a -75 dBm
+        rssiSeekBar.progress = 25
         rssiSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val dbm = -100 + progress
@@ -154,16 +155,9 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        // 3 Preset Chips Rapidi (Lontano -100, iTAG -75, Vicino -50)
-        btnRssiFar.setOnClickListener {
-            rssiSeekBar.progress = 0
-        }
-        btnRssiItag.setOnClickListener {
-            rssiSeekBar.progress = 25
-        }
-        btnRssiNear.setOnClickListener {
-            rssiSeekBar.progress = 50
-        }
+        btnRssiFar.setOnClickListener { rssiSeekBar.progress = 0 }
+        btnRssiItag.setOnClickListener { rssiSeekBar.progress = 25 }
+        btnRssiNear.setOnClickListener { rssiSeekBar.progress = 50 }
 
         manageCard.setOnClickListener {
             startActivity(Intent(this, DeviceManagerActivity::class.java))
@@ -179,7 +173,6 @@ class MainActivity : AppCompatActivity() {
 
         registerReceiver(classicReceiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
 
-        // Inizializza database SIG integrato
         dbManager.ensureDatabases {
             runOnUiThread {
                 debugText.text = dbManager.getDebugInfo()
@@ -188,12 +181,73 @@ class MainActivity : AppCompatActivity() {
 
         updateTargetStatus()
         updatePresetChipHighlights(minRssiThreshold)
+        loadBondedDevices()
     }
 
     override fun onResume() {
         super.onResume()
         updateTargetStatus()
+        loadBondedDevices()
         adapter.notifyDataSetChanged()
+    }
+
+    private fun calculateDistance(rssi: Int, txPower: Int = -59): String {
+        if (rssi == 0 || rssi == 127) return "N/D"
+        val ratio = rssi * 1.0 / txPower
+        val distance = if (ratio < 1.0) {
+            Math.pow(ratio, 10.0)
+        } else {
+            0.89976 * Math.pow(ratio, 7.7095) + 0.111
+        }
+        return String.format(java.util.Locale.US, "%.1f m", distance)
+    }
+
+    /**
+     * Include i dispositivi gia associati/accoppiati nel sistema Android
+     */
+    private fun loadBondedDevices() {
+        try {
+            val bonded = bluetoothAdapter?.bondedDevices ?: return
+            for (device in bonded) {
+                val mac = device.address ?: continue
+                val rawName = try { device.name } catch (e: SecurityException) { null }
+                val cleanName = if (rawName.isNullOrBlank() || rawName.equals("BLE Device", ignoreCase = true) || rawName.equals("Unknown", ignoreCase = true)) null else rawName.trim()
+                val customName = getSavedCustomName(mac)
+                val btClass = try { device.bluetoothClass } catch (e: SecurityException) { null }
+
+                val classification = dbManager.classifyDevice(
+                    name = cleanName,
+                    manufacturerId = null,
+                    manufacturerDataBytes = null,
+                    serviceUuids = null,
+                    scanRecordBytes = null,
+                    bluetoothClass = btClass,
+                    isBle = false,
+                    isBonded = true
+                )
+
+                val item = DeviceItem(
+                    name = cleanName,
+                    customName = customName,
+                    address = mac,
+                    rssi = -60, // Segnale nominale predefinito per associati
+                    type = "Classic",
+                    category = classification.category,
+                    uuids = "Dispositivo Accoppiato nel Sistema",
+                    manufacturer = classification.brand,
+                    appearance = "Associato System",
+                    classificationType = classification.category,
+                    classificationBrand = classification.brand,
+                    classificationConfidence = 99,
+                    estimatedDistance = "~1.0 m",
+                    isBonded = true,
+                    bluetoothDevice = device
+                )
+                upsertDevice(item)
+            }
+        } catch (e: SecurityException) {
+            // Ignora se mancano i permessi
+        }
     }
 
     private fun updateTargetStatus() {
@@ -249,13 +303,11 @@ class MainActivity : AppCompatActivity() {
         statusText.text = "Scansione ricerca attiva..."
         statusIndicatorDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#10B981"))
         rawDeviceList.clear()
+        loadBondedDevices()
         syncDisplayList()
 
         try {
-            // 1. Scansione BLE principale
             bluetoothAdapter?.bluetoothLeScanner?.startScan(bleScanCallback)
-
-            // 2. Se abilitato, avvia anche Discovery Classica
             if (includeClassicSwitch.isChecked) {
                 bluetoothAdapter?.startDiscovery()
             }
@@ -285,7 +337,6 @@ class MainActivity : AppCompatActivity() {
         val cleanName = if (rawName.isNullOrBlank() || rawName.equals("BLE Device", ignoreCase = true) || rawName.equals("Unknown", ignoreCase = true)) null else rawName.trim()
         val customName = getSavedCustomName(mac)
 
-        // Produttore dal database SIG
         val manufacturerData = scanRecord?.manufacturerSpecificData
         var companyId: Int? = null
         var manufacturerBytes: ByteArray? = null
@@ -296,7 +347,6 @@ class MainActivity : AppCompatActivity() {
             manufacturerName = dbManager.getCompanyName(companyId) ?: "ID: 0x${companyId.toString(16).uppercase()}"
         }
 
-        // Servizi e traduzione UUID standard
         val serviceUuids = scanRecord?.serviceUuids
         val uuidNames = if (!serviceUuids.isNullOrEmpty()) {
             serviceUuids.joinToString(", ") { dbManager.getServiceDescription(it.uuid.toString()) }
@@ -304,7 +354,8 @@ class MainActivity : AppCompatActivity() {
             "Nessun servizio standard rilevato"
         }
 
-        // Motore di Fingerprinting avanzato
+        val isBonded = try { device.bondState == BluetoothDevice.BOND_BONDED } catch (e: SecurityException) { false }
+
         val classification = dbManager.classifyDevice(
             name = cleanName,
             manufacturerId = companyId,
@@ -312,8 +363,11 @@ class MainActivity : AppCompatActivity() {
             serviceUuids = serviceUuids,
             scanRecordBytes = scanRecord?.bytes,
             bluetoothClass = null,
-            isBle = true
+            isBle = true,
+            isBonded = isBonded
         )
+
+        val distStr = calculateDistance(result.rssi)
 
         val item = DeviceItem(
             name = cleanName,
@@ -328,7 +382,8 @@ class MainActivity : AppCompatActivity() {
             classificationType = classification.category,
             classificationBrand = classification.brand,
             classificationConfidence = classification.confidence,
-            iconEmoji = classification.iconEmoji,
+            estimatedDistance = distStr,
+            isBonded = isBonded,
             bluetoothDevice = device
         )
 
@@ -342,6 +397,8 @@ class MainActivity : AppCompatActivity() {
         val customName = getSavedCustomName(mac)
 
         val btClass = try { device.bluetoothClass } catch (e: SecurityException) { null }
+        val isBonded = try { device.bondState == BluetoothDevice.BOND_BONDED } catch (e: SecurityException) { false }
+
         val classification = dbManager.classifyDevice(
             name = cleanName,
             manufacturerId = null,
@@ -349,8 +406,11 @@ class MainActivity : AppCompatActivity() {
             serviceUuids = null,
             scanRecordBytes = null,
             bluetoothClass = btClass,
-            isBle = false
+            isBle = false,
+            isBonded = isBonded
         )
+
+        val distStr = calculateDistance(rssi)
 
         val item = DeviceItem(
             name = cleanName,
@@ -365,24 +425,18 @@ class MainActivity : AppCompatActivity() {
             classificationType = classification.category,
             classificationBrand = classification.brand,
             classificationConfidence = classification.confidence,
-            iconEmoji = classification.iconEmoji,
+            estimatedDistance = distStr,
+            isBonded = isBonded,
             bluetoothDevice = device
         )
 
         upsertDevice(item)
     }
 
-    /**
-     * Risolve il problema dello scambio/salto continuo dei dispositivi:
-     * - I dispositivi già trovati rimangono ESATTAMENTE nella loro posizione (indice fisso).
-     * - I nuovi dispositivi vengono accodati IN FONDO alla lista.
-     * - Gli aggiornamenti UI sono debouncati/aggregati per evitare microscatti.
-     */
     private fun upsertDevice(item: DeviceItem) {
         runOnUiThread {
             val index = rawDeviceList.indexOfFirst { it.address.equals(item.address, ignoreCase = true) }
             if (index >= 0) {
-                // Aggiornamento in-place alla stessa identica posizione
                 val existing = rawDeviceList[index]
                 val updatedName = item.name ?: existing.name
                 val updatedCustomName = item.customName ?: existing.customName
@@ -391,7 +445,6 @@ class MainActivity : AppCompatActivity() {
                     customName = updatedCustomName
                 )
             } else {
-                // Nuovo dispositivo: aggiunto in coda alla lista
                 rawDeviceList.add(item)
             }
             scheduleUiUpdate()
@@ -406,7 +459,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun syncDisplayList() {
-        val filtered = rawDeviceList.filter { it.rssi >= minRssiThreshold }
+        val filtered = rawDeviceList.filter { it.rssi >= minRssiThreshold || it.isBonded }
         displayDeviceList.clear()
         displayDeviceList.addAll(filtered)
         adapter.notifyDataSetChanged()
@@ -428,9 +481,101 @@ class MainActivity : AppCompatActivity() {
         updateTargetStatus()
         adapter.notifyDataSetChanged()
 
-        // Avvia o notifica il servizio di tracking in background
         val serviceIntent = Intent(this, ScannerService::class.java)
         startService(serviceIntent)
+    }
+
+    /**
+     * Interrogazione e Ispezione Approfondita GATT / SDP / Protocolli
+     */
+    private fun inspectDevice(deviceItem: DeviceItem) {
+        val btDevice = deviceItem.bluetoothDevice
+        if (btDevice == null) {
+            Toast.makeText(this, "Dispositivo non raggiungibile per l'ispezione diretta", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Ispezione Approfondita Dispositivo")
+            .setMessage("Interrogazione dei servizi in corso per ${deviceItem.address}...\nAttendere risposta dai protocolli GATT / SDP...")
+            .setCancelable(true)
+            .setNegativeButton("Chiudi", null)
+            .create()
+
+        dialog.show()
+
+        val reportBuilder = StringBuilder()
+        reportBuilder.append("INFORMAZIONI FINGERPRINTING:\n")
+        reportBuilder.append("MAC Address: ${deviceItem.address}\n")
+        reportBuilder.append("Tecnologia: ${deviceItem.type}\n")
+        reportBuilder.append("Categoria: ${deviceItem.classificationType}\n")
+        reportBuilder.append("Produttore: ${deviceItem.manufacturer}\n")
+        reportBuilder.append("Distanza stimata: ${deviceItem.estimatedDistance}\n")
+        reportBuilder.append("Accoppiato nel Sistema: ${if (deviceItem.isBonded) "SÌ" else "NO"}\n\n")
+
+        if (deviceItem.type == "BLE") {
+            try {
+                btDevice.connectGatt(this, false, object : BluetoothGattCallback() {
+                    override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
+                        if (newState == BluetoothProfile.STATE_CONNECTED) {
+                            gatt?.discoverServices()
+                        } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                            gatt?.close()
+                        }
+                    }
+
+                    override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
+                        if (status == BluetoothGatt.GATT_SUCCESS && gatt != null) {
+                            reportBuilder.append("SERVIZI GATT RILEVATI (${gatt.services.size}):\n")
+                            for (service in gatt.services) {
+                                val sName = dbManager.getServiceDescription(service.uuid.toString())
+                                reportBuilder.append("- ${service.uuid} ($sName)\n")
+                            }
+
+                            // Tenta di leggere Device Info Service (0x180A)
+                            val infoService = gatt.getService(UUID.fromString("0000180a-0000-1000-8000-00805f9b34fb"))
+                            if (infoService != null) {
+                                reportBuilder.append("\nINFO DEVICE SERVICE (0x180A):\n")
+                                for (char in infoService.characteristics) {
+                                    reportBuilder.append("  - UUID: ${char.uuid}\n")
+                                }
+                            }
+
+                            runOnUiThread {
+                                if (dialog.isShowing) {
+                                    dialog.setMessage(reportBuilder.toString())
+                                }
+                            }
+
+                            try {
+                                gatt.disconnect()
+                                gatt.close()
+                            } catch (e: Exception) {}
+                        }
+                    }
+                })
+            } catch (e: SecurityException) {
+                reportBuilder.append("Errore permessi GATT: ${e.message}")
+                dialog.setMessage(reportBuilder.toString())
+            }
+        } else {
+            // Dispositivo Classico
+            try {
+                btDevice.fetchUuidsWithSdp()
+                val uuids = btDevice.uuids
+                if (!uuids.isNullOrEmpty()) {
+                    reportBuilder.append("PROFILI SDP RILEVATI:\n")
+                    for (u in uuids) {
+                        reportBuilder.append("- ${dbManager.getServiceDescription(u.uuid.toString())}\n")
+                    }
+                } else {
+                    reportBuilder.append("Interrogazione SDP inviata al dispositivo.")
+                }
+            } catch (e: SecurityException) {
+                reportBuilder.append("Permessi insufficienti per la richiesta SDP.")
+            }
+            dialog.setMessage(reportBuilder.toString())
+        }
     }
 
     private fun showRenameDialog(device: DeviceItem) {

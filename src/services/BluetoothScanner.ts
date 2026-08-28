@@ -137,7 +137,6 @@ export class BluetoothScanner {
     if (this.scanning) return;
     this.scanning = true;
 
-    // Trigger burst di pacchetti simulati
     let index = 0;
     const emitNext = () => {
       if (!this.scanning) return;
@@ -151,7 +150,6 @@ export class BluetoothScanner {
         const raw = filteredPresets[index % filteredPresets.length];
         index++;
 
-        // Fluttuazione naturale RSSI +/- 4 dBm
         const jitter = Math.floor((Math.random() - 0.5) * 8);
         const currentRssi = raw.baseRssi + jitter;
 
@@ -221,9 +219,6 @@ export class BluetoothScanner {
     const customName = ScannerService.getInstance().getCustomName(raw.address) || undefined;
 
     if (raw.type === "Classic") {
-      const isAudio = (raw.classicCategory || "").toLowerCase().includes("audio") || (raw.classicCategory || "").toLowerCase().includes("soundbar");
-      const isPc = (raw.classicCategory || "").toLowerCase().includes("computer");
-      const iconEmoji = isAudio ? "🎧" : (isPc ? "💻" : "📻");
       return {
         name: raw.name,
         customName,
@@ -238,11 +233,9 @@ export class BluetoothScanner {
         classificationType: raw.classicCategory || "Bluetooth Classico",
         classificationBrand: "Standard Bluetooth",
         classificationConfidence: 85,
-        iconEmoji,
       };
     }
 
-    // Build ScanRecordRaw per BLE
     const manufacturerData = new Map<number, number[]>();
     if (raw.companyId !== undefined) {
       manufacturerData.set(raw.companyId, [0x01, 0x02]);
@@ -257,27 +250,23 @@ export class BluetoothScanner {
 
     const classification = this.fingerprinter.classify(scanRecord, raw.name);
 
-    // Format UUIDs with SIG names
     const uuidsStr =
       raw.serviceUuids && raw.serviceUuids.length > 0
         ? raw.serviceUuids.map((u) => this.dbManager.getServiceName(u) || u).join(", ")
         : "N/D";
 
-    // Format manufacturer
     let manufacturerStr = "N/D";
     if (raw.companyId !== undefined) {
       const compName = this.dbManager.getCompanyName(raw.companyId) || `0x${raw.companyId.toString(16).toUpperCase()}`;
       manufacturerStr = `${compName} (${raw.companyId})`;
     }
 
-    // Format appearance
     let appearanceStr = "N/D";
     if (raw.appearanceValue !== undefined) {
       const appInfo = this.dbManager.getAppearanceName(raw.appearanceValue);
       appearanceStr = appInfo ? appInfo[0] : "N/D";
     }
 
-    // Format modelId
     const modelIdStr = this.fingerprinter.parseFastPairModelId(scanRecord);
 
     return {
@@ -294,7 +283,6 @@ export class BluetoothScanner {
       classificationType: classification.type,
       classificationBrand: classification.brand,
       classificationConfidence: classification.confidence,
-      iconEmoji: classification.iconEmoji,
     };
   }
 }

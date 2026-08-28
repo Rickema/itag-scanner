@@ -1,12 +1,12 @@
 package com.example.itagscanner
 
 import android.bluetooth.BluetoothClass
-import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.os.ParcelUuid
-import android.util.SparseArray
+import android.util.Log
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
-import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
@@ -14,7 +14,6 @@ import java.util.concurrent.Executors
 data class ClassificationResult(
     val category: String,
     val brand: String,
-    val iconEmoji: String,
     val confidence: Int
 )
 
@@ -31,14 +30,16 @@ class DatabaseManager(private val context: Context) {
 
     init {
         loadEmbeddedDatabase()
+        loadCachedDatabase()
+        syncDatabaseFromRemote()
     }
 
     private fun loadEmbeddedDatabase() {
-        // 1. Produttori principali Bluetooth SIG (Top 150+ marchi consumer e IoT)
+        // Registro Esteso Bluetooth SIG Produttori (Comprensivo globale)
         val defaultCompanies = mapOf(
             0x004C to "Apple, Inc.",
             0x0075 to "Samsung Electronics Co. Ltd.",
-            0x0006 to "Microsoft",
+            0x0006 to "Microsoft Corporation",
             0x00E0 to "Google LLC",
             0x000D to "Texas Instruments",
             0x0059 to "Nordic Semiconductor ASA",
@@ -63,67 +64,86 @@ class DatabaseManager(private val context: Context) {
             0x00D2 to "Dialog Semiconductor",
             0x01DA to "Logitech Europe S.A.",
             0x0167 to "Lenovo",
-            0x08E1 to "Oppo",
-            0x08A9 to "Vivo",
-            0x077F to "OnePlus",
+            0x08E1 to "Oppo Mobile",
+            0x08A9 to "Vivo Mobile",
+            0x077F to "OnePlus Technology",
+            0x0A2B to "Realme Mobile",
             0x05EC to "Huami / Zepp / Amazfit",
             0x0499 to "Ruuvi Innovations",
             0x0024 to "Philips Electronics",
-            0x0546 to "Sennheiser electronic",
+            0x0546 to "Sennheiser Electronic",
             0x0368 to "Skullcandy Inc.",
             0x083F to "Marshall Amplification",
+            0x00C7 to "ASUSTek Computer Inc.",
+            0x0100 to "Fossil Group, Inc.",
+            0x0113 to "Beats Electronics (Apple)",
+            0x019A to "Fitbit, Inc. (Google)",
+            0x02FF to "Lenze Technology (iTAG Keyfinder)",
             0x0001 to "Nokia Mobile Phones",
             0x0002 to "Intel Corp.",
             0x0003 to "IBM Corp.",
             0x0004 to "Toshiba Corp.",
-            0x0005 to "3Com",
-            0x000B to "Hewlett-Packard Company",
-            0x0017 to "Hitachi Ltd.",
+            0x000A to "Hewlett-Packard (HP)",
             0x001A to "Motorola Mobility LLC",
-            0x001F to "Avago Technologies",
-            0x0022 to "NEC Corporation",
             0x002A to "Seiko Epson Corporation",
             0x0033 to "Parrot SA",
             0x0040 to "Belkin International, Inc.",
             0x0047 to "Broadcom Corporation",
             0x0056 to "Polar Electro Oy",
-            0x0060 to "Plantronics, Inc.",
+            0x0060 to "Plantronics (Poly)",
             0x006B to "TomTom International BV",
             0x0080 to "Suunto Oy",
-            0x0090 to "Starkey Laboratories Inc.",
-            0x00C7 to "ASUSTek Computer Inc.",
-            0x0100 to "Fossil Group, Inc.",
-            0x0113 to "Beats Electronics",
-            0x019A to "Fitbit, Inc.",
-            0x02FF to "Lenze Technology (iTAG Keyfinder)"
+            0x00B5 to "LG Electronics",
+            0x00D0 to "Canon Inc.",
+            0x00E2 to "Panasonic Corporation",
+            0x00F0 to "Sharp Corporation",
+            0x00FE to "Nintendo Co., Ltd.",
+            0x0104 to "Pioneer Corporation",
+            0x012B to "Jabra (GN Audio A/S)",
+            0x013B to "Bang & Olufsen A/S",
+            0x0141 to "Razer Inc.",
+            0x0171 to "SteelSeries ApS",
+            0x01AB to "YAMAHA Corporation",
+            0x01F0 to "Kenwood Corporation",
+            0x020B to "Alpine Electronics, Inc.",
+            0x021E to "Texas Instruments Inc.",
+            0x0245 to "Nut / Dyneing (Beacon)",
+            0x02A3 to "Chipolo d.o.o.",
+            0x031B to "Zebra Technologies",
+            0x0399 to "Honeywell International",
+            0x0426 to "Polaroid Corporation",
+            0x04C0 to "Sonos, Inc.",
+            0x0529 to "Insta360",
+            0x061D to "GoPro, Inc.",
+            0x06A1 to "DJI Technology Co., Ltd."
         )
         companyIdMap.putAll(defaultCompanies)
 
-        // 2. Servizi standard Bluetooth SIG
+        // Servizi standard Bluetooth SIG & Profili Proprieta
         val defaultServices = mapOf(
             "1800" to "Generic Access",
             "1801" to "Generic Attribute",
             "1802" to "Immediate Alert (iTAG Anti-Loss)",
             "1803" to "Link Loss (iTAG Anti-Loss)",
-            "1804" to "Tx Power",
+            "1804" to "Tx Power Level",
             "1805" to "Current Time Service",
             "1808" to "Glucose Service",
             "1809" to "Health Thermometer",
             "180A" to "Device Information",
-            "180D" to "Heart Rate (Cardio)",
+            "180D" to "Heart Rate (Frequenza Cardiaca)",
             "180E" to "Phone Alert Status",
-            "180F" to "Battery Service (Batteria)",
+            "180F" to "Battery Service (Livello Batteria)",
             "1810" to "Blood Pressure",
             "1811" to "Alert Notification",
             "1812" to "Human Interface Device (HID)",
             "1814" to "Running Speed & Cadence",
             "1816" to "Cycling Speed & Cadence",
-            "181A" to "Environmental Sensing (IoT)",
+            "181A" to "Environmental Sensing (Meteo/Sensori)",
             "181C" to "User Data Service",
             "1826" to "Fitness Machine",
             "110A" to "Audio Source (A2DP)",
             "110B" to "Audio Sink (Cuffie / Speaker)",
-            "110C" to "A/V Remote Control",
+            "110C" to "A/V Remote Control (AVRCP)",
             "110E" to "AVRCP Target",
             "111E" to "Handsfree Profile (HFP)",
             "1124" to "HID Profile (Tastiera/Mouse)",
@@ -133,8 +153,8 @@ class DatabaseManager(private val context: Context) {
             "FD5A" to "Samsung SmartThings / SmartTag",
             "FD69" to "Samsung Galaxy Buds",
             "FD6F" to "Exposure Notification",
-            "FFE0" to "iTAG / Anti-Lost Beacon Serial",
-            "FFE1" to "iTAG Button / Alert Notify",
+            "FFE0" to "iTAG / Anti-Lost Serial",
+            "FFE1" to "iTAG Alert Button",
             "FE2C" to "Fast Pair Audio",
             "FCF1" to "Google Nearby",
             "FD22" to "Huawei Fast Connect"
@@ -144,7 +164,7 @@ class DatabaseManager(private val context: Context) {
             serviceUuidMap["0000${k.lowercase()}-0000-1000-8000-00805f9b34fb"] = v
         }
 
-        // 3. Valori Appearance GAP standard
+        // Aspetti GAP (Appearance)
         val defaultAppearances = mapOf(
             0 to Pair("Sconosciuto", "Dispositivo generico"),
             64 to Pair("Smartphone", "Telefono generico"),
@@ -174,10 +194,60 @@ class DatabaseManager(private val context: Context) {
         isInitialized = true
     }
 
+    private fun loadCachedDatabase() {
+        try {
+            val prefs = context.getSharedPreferences("sig_database_cache", Context.MODE_PRIVATE)
+            val jsonStr = prefs.getString("companies_json", null) ?: return
+            val jsonArray = JSONArray(jsonStr)
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val code = obj.optInt("code", -1)
+                val name = obj.optString("name", "")
+                if (code >= 0 && name.isNotEmpty()) {
+                    companyIdMap[code] = name
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("DatabaseManager", "Errore caricamento cache SIG: ${e.message}")
+        }
+    }
+
+    /**
+     * Sincronizzazione dinamica in background senza blocchi né errori
+     */
+    fun syncDatabaseFromRemote() {
+        executor.execute {
+            try {
+                val url = URL("https://raw.githubusercontent.com/nordic-developer-zone/bluetooth-numbers-database/master/v1/company_ids.json")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 4000
+                connection.readTimeout = 4000
+                connection.requestMethod = "GET"
+
+                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                    val stream = connection.inputStream
+                    val jsonText = stream.bufferedReader().use { it.readText() }
+                    val jsonArray = JSONArray(jsonText)
+                    for (i in 0 until jsonArray.length()) {
+                        val obj = jsonArray.getJSONObject(i)
+                        val code = obj.optInt("code", -1)
+                        val name = obj.optString("name", "")
+                        if (code >= 0 && name.isNotEmpty()) {
+                            companyIdMap[code] = name
+                        }
+                    }
+                    context.getSharedPreferences("sig_database_cache", Context.MODE_PRIVATE)
+                        .edit().putString("companies_json", jsonText).apply()
+                }
+            } catch (e: Exception) {
+                // In caso di assenza di connessione, continua silenziosamente con il DB esteso offline
+            }
+        }
+    }
+
     fun ensureDatabases(callback: () -> Unit) {
         lastError = ""
         executor.execute {
-            // Verifica se sono già caricati i dati embedded
             if (!isInitialized) {
                 loadEmbeddedDatabase()
             }
@@ -191,9 +261,7 @@ class DatabaseManager(private val context: Context) {
 
     fun getServiceDescription(uuidStr: String): String {
         val clean = uuidStr.trim().lowercase()
-        // Cerca esatto
         serviceUuidMap[clean]?.let { return it }
-        // Cerca 16 bit estraendo da 0000xxxx-...
         if (clean.length >= 8 && clean.startsWith("0000") && clean.contains("-1000-8000-00805f9b34fb")) {
             val shortPart = clean.substring(4, 8)
             serviceUuidMap[shortPart]?.let { return it }
@@ -209,8 +277,7 @@ class DatabaseManager(private val context: Context) {
     }
 
     /**
-     * Motore di Fingerprinting avanzato: classifica accuratamente la tipologia reale
-     * del dispositivo (es. Tracker iTAG, Auricolari TWS, Smartphone, PC, Smartwatch, IoT).
+     * Motore di Fingerprinting avanzato globale senza emoji
      */
     fun classifyDevice(
         name: String?,
@@ -219,65 +286,69 @@ class DatabaseManager(private val context: Context) {
         serviceUuids: List<ParcelUuid>?,
         scanRecordBytes: ByteArray?,
         bluetoothClass: BluetoothClass?,
-        isBle: Boolean
+        isBle: Boolean,
+        isBonded: Boolean = false
     ): ClassificationResult {
         val lowerName = (name ?: "").trim().lowercase()
         val mfgName = manufacturerId?.let { companyIdMap[it] }
-
         val uuidStrings = serviceUuids?.map { it.uuid.toString().lowercase() } ?: emptyList()
 
-        // 1. CLASSE DI DISPOSITIVO BLUETOOTH CLASSICO (se presente)
+        var bondedSuffix = if (isBonded) " [Associato nel Telefono]" else ""
+        var baseConfidence = if (isBonded) 99 else 85
+
+        // 1. CLASSE DI DISPOSITIVO BLUETOOTH CLASSICO
         if (bluetoothClass != null) {
             val deviceClass = bluetoothClass.deviceClass
             val majorClass = bluetoothClass.majorDeviceClass
 
             when (majorClass) {
                 BluetoothClass.Device.Major.AUDIO_VIDEO -> {
+                    val sub = when (deviceClass) {
+                        BluetoothClass.Device.AUDIO_VIDEO_LOUDSPEAKER -> "Speaker / Cassa Audio"
+                        BluetoothClass.Device.AUDIO_VIDEO_HEADPHONES -> "Cuffie Over-Ear"
+                        BluetoothClass.Device.AUDIO_VIDEO_WEARABLE_HEADSET -> "Auricolari TWS"
+                        BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE -> "Kit Vivavoce"
+                        else -> "Audio / Speaker"
+                    }
                     return ClassificationResult(
-                        category = "Auricolari / Cuffie (Audio)",
+                        category = "$sub$bondedSuffix",
                         brand = mfgName ?: "Dispositivo Audio",
-                        iconEmoji = "🎧",
-                        confidence = 95
+                        confidence = baseConfidence
                     )
                 }
                 BluetoothClass.Device.Major.PHONE -> {
                     return ClassificationResult(
-                        category = "Smartphone / Cellulare",
+                        category = "Smartphone / Cellulare$bondedSuffix",
                         brand = mfgName ?: "Smartphone",
-                        iconEmoji = "📱",
-                        confidence = 95
+                        confidence = baseConfidence
                     )
                 }
                 BluetoothClass.Device.Major.COMPUTER -> {
                     return ClassificationResult(
-                        category = "Computer / PC / Notebook",
+                        category = "Computer / PC / Notebook$bondedSuffix",
                         brand = mfgName ?: "Computer",
-                        iconEmoji = "💻",
-                        confidence = 95
+                        confidence = baseConfidence
                     )
                 }
                 BluetoothClass.Device.Major.PERIPHERAL -> {
                     val sub = if (deviceClass == BluetoothClass.Device.PERIPHERAL_POINTING) "Mouse" else "Tastiera / Periferica"
                     return ClassificationResult(
-                        category = "Periferica ($sub)",
+                        category = "Periferica ($sub)$bondedSuffix",
                         brand = mfgName ?: "Accessorio PC",
-                        iconEmoji = "🖱️",
-                        confidence = 95
+                        confidence = baseConfidence
                     )
                 }
                 BluetoothClass.Device.Major.WEARABLE -> {
                     return ClassificationResult(
-                        category = "Smartwatch / Smartband",
+                        category = "Smartwatch / Smartband$bondedSuffix",
                         brand = mfgName ?: "Wearable",
-                        iconEmoji = "⌚",
-                        confidence = 90
+                        confidence = baseConfidence
                     )
                 }
             }
         }
 
-        // 2. VERIFICA TRACKER / ITAG / BEACON TROVA-OGGETTI (Priorità assoluta)
-        // a) Presenza dei servizi BLE 0x1802 (Immediate Alert) o 0x1803 (Link Loss) o 0xFFE0
+        // 2. TRACKER / ITAG / BEACON TROVA-OGGETTI
         val isItagAlertService = uuidStrings.any {
             it.contains("1802") || it.contains("1803") || it.contains("ffe0")
         }
@@ -295,99 +366,86 @@ class DatabaseManager(private val context: Context) {
                 else -> "Tracker / iTAG"
             }
             return ClassificationResult(
-                category = "Tracker / Portachiavi (iTAG)",
+                category = "Tracker / Portachiavi (iTAG)$bondedSuffix",
                 brand = brand,
-                iconEmoji = "🏷️",
                 confidence = 98
             )
         }
 
-        // b) Apple AirTag o Rete Dov'è (Find My)
+        // Apple AirTag / Dov'è
         if (manufacturerId == 0x004C) {
-            // Se nome contiene airtag o se ha pattern beacon FindMy
             if (lowerName.contains("airtag") || (manufacturerDataBytes != null && manufacturerDataBytes.size >= 2 && manufacturerDataBytes[0].toInt() == 0x12)) {
                 return ClassificationResult(
-                    category = "Tracker (Apple AirTag / Dov'è)",
+                    category = "Tracker (Apple AirTag / Dov'è)$bondedSuffix",
                     brand = "Apple, Inc.",
-                    iconEmoji = "🏷️",
                     confidence = 98
                 )
             }
-            // AirPods o cuffie Apple
             if (lowerName.contains("airpods") || lowerName.contains("beats")) {
                 return ClassificationResult(
-                    category = "Auricolari Apple (AirPods)",
+                    category = "Auricolari Apple (AirPods)$bondedSuffix",
                     brand = "Apple, Inc.",
-                    iconEmoji = "🎧",
                     confidence = 98
                 )
             }
-            // iPhone / iPad / Mac
             if (lowerName.contains("iphone") || lowerName.contains("ipad")) {
                 return ClassificationResult(
-                    category = "Smartphone / Tablet (Apple)",
+                    category = "Smartphone / Tablet (Apple)$bondedSuffix",
                     brand = "Apple, Inc.",
-                    iconEmoji = "📱",
                     confidence = 95
                 )
             }
             if (lowerName.contains("macbook") || lowerName.contains("imac")) {
                 return ClassificationResult(
-                    category = "Computer (Mac)",
+                    category = "Computer (Mac)$bondedSuffix",
                     brand = "Apple, Inc.",
-                    iconEmoji = "💻",
                     confidence = 95
                 )
             }
         }
 
-        // c) Samsung Galaxy SmartTag o Galaxy Buds
+        // Samsung SmartTag / Galaxy Buds / Smartphone
         if (manufacturerId == 0x0075 || lowerName.contains("galaxy") || lowerName.contains("samsung")) {
             if (lowerName.contains("smarttag") || uuidStrings.any { it.contains("fd5a") }) {
                 return ClassificationResult(
-                    category = "Tracker (Samsung SmartTag)",
+                    category = "Tracker (Samsung SmartTag)$bondedSuffix",
                     brand = "Samsung Electronics",
-                    iconEmoji = "🏷️",
                     confidence = 98
                 )
             }
             if (lowerName.contains("buds") || uuidStrings.any { it.contains("fd69") }) {
                 return ClassificationResult(
-                    category = "Auricolari (Samsung Galaxy Buds)",
+                    category = "Auricolari (Samsung Galaxy Buds)$bondedSuffix",
                     brand = "Samsung Electronics",
-                    iconEmoji = "🎧",
                     confidence = 98
                 )
             }
             if (lowerName.contains("watch")) {
                 return ClassificationResult(
-                    category = "Smartwatch (Galaxy Watch)",
+                    category = "Smartwatch (Galaxy Watch)$bondedSuffix",
                     brand = "Samsung Electronics",
-                    iconEmoji = "⌚",
                     confidence = 95
                 )
             }
             if (lowerName.contains("galaxy") || lowerName.contains("s2") || lowerName.contains("a5") || lowerName.contains("tab")) {
                 return ClassificationResult(
-                    category = "Smartphone (Samsung Galaxy)",
+                    category = "Smartphone (Samsung Galaxy)$bondedSuffix",
                     brand = "Samsung Electronics",
-                    iconEmoji = "📱",
                     confidence = 92
                 )
             }
         }
 
-        // d) Tile Tracker
+        // Tile Tracker
         if (manufacturerId == 0x0131 || lowerName.contains("tile") || uuidStrings.any { it.contains("feed") }) {
             return ClassificationResult(
-                category = "Tracker (Tile)",
+                category = "Tracker (Tile)$bondedSuffix",
                 brand = "Tile, Inc.",
-                iconEmoji = "🏷️",
                 confidence = 98
             )
         }
 
-        // 3. AURICOLARI / CUFFIE / AUDIO (TWS)
+        // 3. AURICOLARI / CUFFIE / SPEAKER / AUDIO TWS
         val isAudioService = uuidStrings.any {
             it.contains("110b") || it.contains("110a") || it.contains("110c") ||
                     it.contains("111e") || it.contains("fe9f") || it.contains("fe2c")
@@ -397,13 +455,13 @@ class DatabaseManager(private val context: Context) {
                 lowerName.contains("soundcore") || lowerName.contains("jbl") ||
                 lowerName.contains("wh-") || lowerName.contains("wf-") ||
                 lowerName.contains("speaker") || lowerName.contains("cuffie") ||
-                lowerName.contains("auricolari") || lowerName.contains("tws")
+                lowerName.contains("auricolari") || lowerName.contains("tws") ||
+                lowerName.contains("soundbar") || lowerName.contains("audio")
 
         if (isAudioService || isAudioName) {
             return ClassificationResult(
-                category = "Auricolari / Cuffie (Audio TWS)",
+                category = "Auricolari / Cuffie / Speaker (Audio Wireless)$bondedSuffix",
                 brand = mfgName ?: "Audio Wireless",
-                iconEmoji = "🎧",
                 confidence = 92
             )
         }
@@ -419,9 +477,8 @@ class DatabaseManager(private val context: Context) {
 
         if (isFitnessService || isWatchName) {
             return ClassificationResult(
-                category = "Smartwatch / Smartband (Fitness)",
+                category = "Smartwatch / Smartband (Fitness)$bondedSuffix",
                 brand = mfgName ?: "Wearable",
-                iconEmoji = "⌚",
                 confidence = 92
             )
         }
@@ -435,9 +492,8 @@ class DatabaseManager(private val context: Context) {
 
         if (isPhoneName) {
             return ClassificationResult(
-                category = "Smartphone / Tablet",
+                category = "Smartphone / Tablet$bondedSuffix",
                 brand = mfgName ?: "Smartphone",
-                iconEmoji = "📱",
                 confidence = 90
             )
         }
@@ -449,9 +505,8 @@ class DatabaseManager(private val context: Context) {
 
         if (manufacturerId == 0x0006 || isComputerName) {
             return ClassificationResult(
-                category = "Computer / PC / Notebook",
+                category = "Computer / PC / Notebook$bondedSuffix",
                 brand = mfgName ?: "Microsoft / PC",
-                iconEmoji = "💻",
                 confidence = 92
             )
         }
@@ -459,37 +514,33 @@ class DatabaseManager(private val context: Context) {
         // 7. SMART HOME & DISPOSITIVI IOT
         if (manufacturerId == 0x07F6 || lowerName.startsWith("caf-") || lowerName.contains("etekcity")) {
             return ClassificationResult(
-                category = "Smart Home / Bilancia (Etekcity)",
+                category = "Smart Home / Bilancia (Etekcity)$bondedSuffix",
                 brand = "Etekcity Corporation",
-                iconEmoji = "🏠",
                 confidence = 92
             )
         }
 
         if (manufacturerId == 0x02E5 || lowerName.contains("esp32") || lowerName.contains("sonoff")) {
             return ClassificationResult(
-                category = "Dispositivo IoT / Microcontroller (ESP32)",
+                category = "Dispositivo IoT / Microcontroller (ESP32)$bondedSuffix",
                 brand = "Espressif Systems",
-                iconEmoji = "🔌",
                 confidence = 95
             )
         }
 
         if (uuidStrings.any { it.contains("181a") }) {
             return ClassificationResult(
-                category = "Sensore Smart Home (Meteo / Ambiente)",
+                category = "Sensore Smart Home (Meteo / Ambiente)$bondedSuffix",
                 brand = mfgName ?: "Sensore Ambientale",
-                iconEmoji = "🌡️",
                 confidence = 88
             )
         }
 
-        // 8. PERIFERICHE HID (Mouse, Tastiere)
+        // 8. PERIFERICHE HID
         if (uuidStrings.any { it.contains("1812") } || lowerName.contains("mouse") || lowerName.contains("keyboard") || lowerName.contains("gamepad")) {
             return ClassificationResult(
-                category = "Periferica (Tastiera/Mouse/Gamepad)",
+                category = "Periferica (Tastiera/Mouse/Gamepad)$bondedSuffix",
                 brand = mfgName ?: "Accessorio",
-                iconEmoji = "🖱️",
                 confidence = 90
             )
         }
@@ -497,24 +548,22 @@ class DatabaseManager(private val context: Context) {
         // 9. FALLBACK CON PRODUTTORE NOTO
         if (mfgName != null && mfgName != "N/D") {
             return ClassificationResult(
-                category = "Dispositivo $mfgName",
+                category = "Dispositivo $mfgName$bondedSuffix",
                 brand = mfgName,
-                iconEmoji = if (isBle) "📡" else "📻",
-                confidence = 65
+                confidence = if (isBonded) 99 else 70
             )
         }
 
         // 10. DISPOSITIVO SCONOSCIUTO
         return ClassificationResult(
-            category = "Dispositivo Sconosciuto",
+            category = if (isBonded) "Dispositivo Associato$bondedSuffix" else "Dispositivo Sconosciuto",
             brand = "N/D",
-            iconEmoji = "❓",
-            confidence = 30
+            confidence = if (isBonded) 95 else 30
         )
     }
 
     fun getDebugInfo(): String {
         return "Database SIG Offline Integrato: ${companyIdMap.size} Produttori, ${serviceUuidMap.size / 2} Servizi UUID, ${appearanceMap.size} Aspetti GAP.\n" +
-                "Stato Fingerprinting: PRONTO E ATTIVO AL 100% SENZA ERRORI DI RETE."
+                "Stato Fingerprinting: PRONTO E ATTIVO PER TUTTI I DISPOSITIVI SENZA EMOJI."
     }
 }

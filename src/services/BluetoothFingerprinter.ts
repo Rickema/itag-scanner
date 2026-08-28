@@ -20,7 +20,6 @@ export class BluetoothFingerprinter {
     let type = "Dispositivo Sconosciuto";
     let brand = "Sconosciuto";
     let model = "N/D";
-    let iconEmoji = "❓";
 
     if (!scanRecord) {
       return { type, brand, model, confidence: 20 };
@@ -45,16 +44,7 @@ export class BluetoothFingerprinter {
     // 2. Estrai Service UUIDs
     const serviceUuids = (scanRecord.serviceUuids || []).map((u) => u.toLowerCase());
 
-    // 3. Estrai Appearance
-    const appearanceValue = this.extractAppearance(scanRecord);
-    const appearanceName =
-      appearanceValue !== null
-        ? this.db.getAppearanceName(appearanceValue)?.[0] || "N/D"
-        : "N/D";
-
-    // 4. Regole di Classificazione Dettagliata
-
-    // 4a. Tracker / Trova-oggetti / iTAG / AirTag / SmartTag / Tile
+    // 3. Regole di Classificazione Dettagliata
     const isItagUuid = serviceUuids.some((u) =>
       u.includes("1802") || u.includes("1803") || u.includes("ffe0") || u.includes("feed")
     );
@@ -66,7 +56,6 @@ export class BluetoothFingerprinter {
 
     if (isItagUuid || isItagName) {
       type = "Tracker / Portachiavi (iTAG)";
-      iconEmoji = "🏷️";
       score += 50;
       if (companyId === BluetoothFingerprinter.APPLE_ID || lowerName.includes("airtag")) {
         type = "Tracker (Apple AirTag / Dov'è)";
@@ -83,7 +72,6 @@ export class BluetoothFingerprinter {
       }
     }
 
-    // 4b. Auricolari / Cuffie / Audio TWS
     const isAudioUuid = serviceUuids.some((u) =>
       u.includes("110b") || u.includes("110a") || u.includes("110c") ||
       u.includes("111e") || u.includes("fe9f") || u.includes("fe2c") || u.includes("fd69")
@@ -97,7 +85,6 @@ export class BluetoothFingerprinter {
 
     if (isAudioUuid || isAudioName) {
       type = "Auricolari / Cuffie (Audio TWS)";
-      iconEmoji = "🎧";
       score += 45;
       if (companyId === BluetoothFingerprinter.APPLE_ID || lowerName.includes("airpods")) {
         type = "Auricolari Apple (AirPods)";
@@ -110,7 +97,6 @@ export class BluetoothFingerprinter {
       }
     }
 
-    // 4c. Smartphone / Tablet
     const isPhoneName = lowerName.includes("galaxy") || lowerName.includes("iphone") ||
       lowerName.includes("ipad") || lowerName.includes("redmi") ||
       lowerName.includes("xiaomi") || lowerName.includes("pixel") ||
@@ -120,22 +106,18 @@ export class BluetoothFingerprinter {
 
     if (type === "Dispositivo Sconosciuto" && isPhoneName) {
       type = "Smartphone / Tablet";
-      iconEmoji = "📱";
       score += 40;
     }
 
-    // 4d. Computer / Notebook / PC
     const isComputerName = lowerName.startsWith("desktop-") || lowerName.startsWith("laptop-") ||
       lowerName.includes("macbook") || lowerName.includes("imac") ||
       lowerName.includes("thinkpad") || lowerName.includes("notebook");
 
     if (type === "Dispositivo Sconosciuto" && (companyId === BluetoothFingerprinter.MICROSOFT_ID || isComputerName)) {
       type = "Computer / PC / Notebook";
-      iconEmoji = "💻";
       score += 45;
     }
 
-    // 4e. Smartwatch / Smartband
     const isFitnessUuid = serviceUuids.some((u) =>
       u.includes("180d") || u.includes("1814") || u.includes("1816") || u.includes("1826")
     );
@@ -145,32 +127,26 @@ export class BluetoothFingerprinter {
 
     if (type === "Dispositivo Sconosciuto" && (isFitnessUuid || isWatchName)) {
       type = "Smartwatch / Smartband (Fitness)";
-      iconEmoji = "⌚";
       score += 45;
     }
 
-    // 4f. Smart Home / Bilance (es. Etekcity) / IoT
     if (type === "Dispositivo Sconosciuto" && (companyId === BluetoothFingerprinter.ETEKCITY_ID || lowerName.startsWith("caf-") || lowerName.includes("etekcity"))) {
       type = "Smart Home / Bilancia (Etekcity)";
       brand = "Etekcity Corporation";
-      iconEmoji = "🏠";
       score += 50;
     } else if (type === "Dispositivo Sconosciuto" && (companyId === BluetoothFingerprinter.ESPRESSIF_ID || lowerName.includes("esp32"))) {
       type = "Dispositivo IoT (ESP32)";
       brand = "Espressif Systems";
-      iconEmoji = "🔌";
       score += 50;
     }
 
-    // 4g. Fallback se produttore noto
     if (type === "Dispositivo Sconosciuto" && brand !== "Sconosciuto" && !brand.startsWith("0x")) {
       type = `Dispositivo ${brand}`;
-      iconEmoji = "📡";
       score += 20;
     }
 
     const finalScore = Math.min(Math.max(score, 25), 98);
-    return { type, brand, model, confidence: finalScore, iconEmoji };
+    return { type, brand, model, confidence: finalScore };
   }
 
   extractAppearance(scanRecord: ScanRecordRaw): number | null {

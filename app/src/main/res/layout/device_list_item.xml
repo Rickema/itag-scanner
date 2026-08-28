@@ -50,7 +50,7 @@
                 android:textColor="@color/ble_badge_text" />
         </LinearLayout>
 
-        <!-- Riga 2: Tipologia Identificata Reale (Tracker, Cuffie, Smartphone, PC, ecc.) -->
+        <!-- Riga 2: Tipologia Identificata Reale (senza emoji) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -62,7 +62,7 @@
                 android:id="@+id/typeText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🏷️ Tracker / Portachiavi (iTAG) (98%)"
+                android:text="Tracker / Portachiavi (iTAG) (98%)"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="@color/primary_indigo"
@@ -83,7 +83,7 @@
             android:textColor="@color/text_secondary"
             android:layout_marginTop="5dp" />
 
-        <!-- Riga 4: Servizi e Funzionalità -->
+        <!-- Riga 4: Servizi e Funzionalita -->
         <TextView
             android:id="@+id/uuidText"
             android:layout_width="match_parent"
@@ -106,7 +106,7 @@
             android:visibility="gone"
             android:layout_marginTop="2dp" />
 
-        <!-- Riga Inferiore: Segnale RSSI + MAC + Pulsante Imposta Target -->
+        <!-- Riga Inferiore: Segnale RSSI + Distanza stimata + MAC + Pulsanti Azioni -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -128,25 +128,45 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="6dp"
-                android:text="-75 dBm  (MAC: AA:BB:CC:DD:EE:FF)"
+                android:text="-75 dBm (~1.5 m) [AA:BB:CC:DD:EE:FF]"
                 android:textSize="11sp"
                 android:fontFamily="monospace"
                 android:textColor="@color/text_secondary" />
 
+            <!-- Pulsante Interroga / Ispezione Approfondita -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/inspectButton"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:text="INTERROGA"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="#3F51B5"
+                app:strokeColor="#3F51B5"
+                app:strokeWidth="1dp"
+                app:backgroundTint="#F1F5F9"
+                app:cornerRadius="8dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:layout_marginEnd="6dp" />
+
+            <!-- Pulsante Imposta Target -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/selectButton"
                 android:layout_width="wrap_content"
                 android:layout_height="38dp"
-                android:text="IMPOSTA TARGET"
-                android:textSize="11sp"
+                android:text="TARGET"
+                android:textSize="10sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"
                 app:backgroundTint="@color/primary_indigo"
                 app:cornerRadius="8dp"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp" />
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp" />
         </LinearLayout>
 
     </LinearLayout>

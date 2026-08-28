@@ -4,6 +4,7 @@ import { DeviceItem } from '../types';
 interface DeviceListItemProps {
   item: DeviceItem;
   onSelect: (item: DeviceItem) => void;
+  onInspect?: (item: DeviceItem) => void;
   onRename: (item: DeviceItem) => void;
   isTarget?: boolean;
 }
@@ -11,6 +12,7 @@ interface DeviceListItemProps {
 export const DeviceListItem: React.FC<DeviceListItemProps> = ({
   item,
   onSelect,
+  onInspect,
   onRename,
   isTarget = false,
 }) => {
@@ -30,12 +32,23 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
     }
   };
 
+  const calculateDistance = (rssi: number, txPower = -59): string => {
+    if (!rssi || rssi === 0) return "N/D";
+    const ratio = (rssi * 1.0) / txPower;
+    if (ratio < 1.0) {
+      return `${Math.pow(ratio, 10).toFixed(1)} m`;
+    } else {
+      return `${(0.89976 * Math.pow(ratio, 7.7095) + 0.111).toFixed(1)} m`;
+    }
+  };
+
   const isBle = item.type === "BLE";
   const isSignalStrong = item.rssi >= -75;
 
   const rawName = (item.name || "").trim();
   const isGenericName = !rawName || rawName.toLowerCase() === "ble device" || rawName.toLowerCase() === "dispositivo classico" || rawName.toLowerCase() === "unknown";
   const displayName = item.customName ? item.customName : (isGenericName ? "Sconosciuto" : rawName);
+  const estimatedDist = item.estimatedDistance || calculateDistance(item.rssi);
 
   return (
     <div
@@ -51,7 +64,7 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
     >
       <div className="flex flex-col space-y-2.5">
         
-        {/* Intestazione del Dispositivo: Nome + Seleziona Target */}
+        {/* Intestazione del Dispositivo: Nome + Azioni */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
@@ -94,10 +107,9 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
               )}
             </div>
 
-            {/* Tipologia Riconosciuta reale */}
+            {/* Tipologia Riconosciuta reale senza emoji */}
             <div className="flex items-center gap-1.5 mt-1">
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3F51B5] bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
-                <span>{item.iconEmoji || "🏷️"}</span>
                 <span>{item.classificationType}</span>
                 <span className="text-indigo-400 font-normal">({item.classificationConfidence}%)</span>
               </span>
@@ -123,8 +135,21 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
             </div>
           </div>
 
-          {/* Pulsante Seleziona Target */}
-          <div className="shrink-0">
+          {/* Pulsanti Interroga e Seleziona Target */}
+          <div className="shrink-0 flex items-center gap-1.5">
+            {onInspect && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onInspect(item);
+                }}
+                className="text-xs px-2.5 py-1.5 font-bold rounded-lg border border-indigo-600 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors min-h-[38px]"
+              >
+                INTERROGA
+              </button>
+            )}
+
             <button
               id={`selectButton-${item.address.replace(/[^a-zA-Z0-9]/g, '-')}`}
               type="button"
@@ -146,7 +171,7 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
                   <span>Target</span>
                 </>
               ) : (
-                <span>Seleziona</span>
+                <span>Target</span>
               )}
             </button>
           </div>
@@ -206,11 +231,11 @@ export const DeviceListItem: React.FC<DeviceListItemProps> = ({
           </button>
         </div>
 
-        {/* Barra di Segnale RSSI */}
+        {/* Barra di Segnale RSSI + Distanza Stimata */}
         <div className="flex items-center justify-between text-xs pt-0.5">
           <div id="rssiText" className="font-medium text-gray-800 flex items-center gap-1.5">
             <span className={`inline-block w-2.5 h-2.5 rounded-full ${isSignalStrong ? 'bg-green-500' : 'bg-amber-500'}`} />
-            <span>Potenza RSSI: <strong className="font-mono">{item.rssi} dBm</strong></span>
+            <span>Segnale RSSI: <strong className="font-mono">{item.rssi} dBm</strong> (~{estimatedDist})</span>
           </div>
 
           <span className="text-[10px] text-gray-400 font-medium">
