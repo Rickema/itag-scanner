@@ -31,7 +31,6 @@ class DatabaseManager(private val context: Context) {
     init {
         loadEmbeddedDatabase()
         loadCachedDatabase()
-        syncDatabaseFromRemote()
     }
 
     private fun loadEmbeddedDatabase() {
