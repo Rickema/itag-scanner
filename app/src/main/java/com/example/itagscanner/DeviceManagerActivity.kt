@@ -6,15 +6,17 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
-import com.google.android.material.switchmaterial.SwitchMaterial
 import android.widget.Toast
-import android.widget.ImageView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.switchmaterial.SwitchMaterial
 
 class DeviceManagerActivity : AppCompatActivity() {
 
@@ -35,12 +37,11 @@ class DeviceManagerActivity : AppCompatActivity() {
     private lateinit var btnRenameTarget: TextView
     private lateinit var tvTargetTechBadge: TextView
     private lateinit var tvTargetMacDetails: TextView
+    private lateinit var btnCopyMac: TextView
     private lateinit var tvTargetUuids: TextView
     private lateinit var targetActionsRow: LinearLayout
     private lateinit var btnToastDetails: TextView
     private lateinit var btnRemoveTarget: TextView
-    private lateinit var btnCopyMac: TextView
-    private lateinit var btnRenameTarget: TextView
 
     private lateinit var tvDurationValue: TextView
     private lateinit var seekDurationReact: SeekBar
@@ -91,12 +92,11 @@ class DeviceManagerActivity : AppCompatActivity() {
         btnRenameTarget = findViewById(R.id.btnRenameTarget)
         tvTargetTechBadge = findViewById(R.id.tvTargetTechBadge)
         tvTargetMacDetails = findViewById(R.id.tvTargetMacDetails)
+        btnCopyMac = findViewById(R.id.btnCopyMac)
         tvTargetUuids = findViewById(R.id.tvTargetUuids)
         targetActionsRow = findViewById(R.id.targetActionsRow)
         btnToastDetails = findViewById(R.id.btnToastDetails)
         btnRemoveTarget = findViewById(R.id.btnRemoveTarget)
-        btnCopyMac = findViewById(R.id.btnCopyMac)
-        btnRenameTarget = findViewById(R.id.btnRenameTarget)
         archiveContainerReact = findViewById(R.id.archiveContainerReact)
         archiveCountBadgeReact = findViewById(R.id.archiveCountBadgeReact)
 
@@ -126,33 +126,29 @@ class DeviceManagerActivity : AppCompatActivity() {
             findViewById(R.id.presetPause120s)
         )
 
-        
         btnCopyMac.setOnClickListener {
+            val prefs = getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
             val mac = prefs.getString("target_mac", null)
             if (mac != null) {
                 val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                 val clip = android.content.ClipData.newPlainText("MAC Address", mac)
                 clipboard.setPrimaryClip(clip)
-                Toast.makeText(this, "MAC copiato", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "MAC copiato: $mac", Toast.LENGTH_SHORT).show()
             }
         }
         
         btnToastDetails.setOnClickListener {
-            Toast.makeText(this, "Dettagli Toast (Simulazione)", Toast.LENGTH_SHORT).show()
+            val prefs = getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
+            val mac = prefs.getString("target_mac", "--")
+            val name = prefs.getString("target_name", "Target")
+            val tech = prefs.getString("target_technology", "BLE")
+            val info = "Target: $name\nMAC: $mac\nTipo: $tech"
+            Toast.makeText(this, info, Toast.LENGTH_LONG).show()
         }
         
         btnRenameTarget.setOnClickListener {
-             Toast.makeText(this, "Rinomina non ancora implementato", Toast.LENGTH_SHORT).show()
+            showRenameDialog()
         }
-
-        setupSliders()
-
-        switchEcoReact.setOnCheckedChangeListener { _, _ ->
-            saveCycleSettings()
-        }
-        loadTargetData()
-        loadArchive()
-        selectTab("device")
 
         btnRemoveTarget.setOnClickListener {
             getSharedPreferences("itag_prefs", Context.MODE_PRIVATE).edit()
@@ -166,6 +162,16 @@ class DeviceManagerActivity : AppCompatActivity() {
             loadTargetData()
             loadArchive()
         }
+
+        setupSliders()
+
+        switchEcoReact.setOnCheckedChangeListener { _, _ ->
+            saveCycleSettings()
+        }
+
+        loadTargetData()
+        loadArchive()
+        selectTab("device")
 
         restartServiceButtonReact.setOnClickListener {
             val serviceIntent = Intent(this, ScannerService::class.java)
@@ -201,6 +207,42 @@ class DeviceManagerActivity : AppCompatActivity() {
             })
             Toast.makeText(this, "Test ACTION_FAR inviato!", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun showRenameDialog() {
+        val prefs = getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
+        val mac = prefs.getString("target_mac", null) ?: return
+        val currentName = prefs.getString("target_name", "") ?: ""
+
+        val input = EditText(this).apply {
+            setText(currentName)
+            setSelection(text.length)
+        }
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 20, 50, 20)
+            addView(input)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Rinomina Dispositivo Target")
+            .setMessage("Inserisci un nome personalizzato per questo target:")
+            .setView(container)
+            .setPositiveButton("Salva") { _, _ ->
+                val newName = input.text.toString().trim()
+                if (newName.isNotEmpty()) {
+                    prefs.edit().putString("target_name", newName).apply()
+                    val tech = prefs.getString("target_technology", "BLE") ?: "BLE"
+                    val uuids = prefs.getString("target_uuids", null)
+                    TargetArchiveManager.addToArchive(this, mac, currentName, newName, tech, null, null, uuids)
+                    Toast.makeText(this, "Nome aggiornato: $newName", Toast.LENGTH_SHORT).show()
+                    loadTargetData()
+                    loadArchive()
+                }
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
     }
 
     private fun selectTab(tab: String) {
@@ -247,26 +289,7 @@ class DeviceManagerActivity : AppCompatActivity() {
         }
     }
 
-    private fun 
-        btnCopyMac.setOnClickListener {
-            val mac = prefs.getString("target_mac", null)
-            if (mac != null) {
-                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                val clip = android.content.ClipData.newPlainText("MAC Address", mac)
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(this, "MAC copiato", Toast.LENGTH_SHORT).show()
-            }
-        }
-        
-        btnToastDetails.setOnClickListener {
-            Toast.makeText(this, "Dettagli Toast (Simulazione)", Toast.LENGTH_SHORT).show()
-        }
-        
-        btnRenameTarget.setOnClickListener {
-             Toast.makeText(this, "Rinomina non ancora implementato", Toast.LENGTH_SHORT).show()
-        }
-
-        setupSliders() {
+    private fun setupSliders() {
         seekDurationReact.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 scanDurationSec = 2 + progress
@@ -357,7 +380,6 @@ class DeviceManagerActivity : AppCompatActivity() {
             
             targetActionsRow.visibility = View.VISIBLE
             btnRenameTarget.visibility = View.VISIBLE
-            btnRenameTarget.visibility = View.VISIBLE
         } else {
             tvTargetNameLarge.text = "Nessun target"
             tvTargetMacDetails.text = "--"
@@ -365,7 +387,6 @@ class DeviceManagerActivity : AppCompatActivity() {
             tvTargetTechBadge.setBackgroundResource(0)
             tvTargetUuids.text = "--"
             targetActionsRow.visibility = View.GONE
-            btnRenameTarget.visibility = View.GONE
             btnRenameTarget.visibility = View.GONE
         }
     }
@@ -415,7 +436,7 @@ class DeviceManagerActivity : AppCompatActivity() {
                 actionButton.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FEF3C7"))
                 actionButton.setTextColor(android.graphics.Color.parseColor("#92400E"))
                 actionButton.setOnClickListener {
-                    removeTargetBtnLarge.performClick()
+                    btnRemoveTarget.performClick()
                 }
             } else {
                 activeBadge.visibility = View.GONE
