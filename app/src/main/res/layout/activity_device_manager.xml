@@ -897,7 +897,7 @@
                         </LinearLayout>
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_chip_unselected_react" android:padding="12dp" android:layout_marginBottom="8dp">
                             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="extra_technology" android:textSize="13sp" android:textStyle="bold" android:fontFamily="monospace" android:textColor="#111827" android:layout_marginBottom="4dp"/>
-                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text=""BLE" oppure "CLASSIC" (stringa)" android:textSize="12sp" android:textColor="#6B7280"/>
+                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="BLE oppure CLASSIC (stringa)" android:textSize="12sp" android:textColor="#6B7280"/>
                         </LinearLayout>
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_chip_unselected_react" android:padding="12dp">
                             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="extra_timestamp" android:textSize="13sp" android:textStyle="bold" android:fontFamily="monospace" android:textColor="#111827" android:layout_marginBottom="4dp"/>
