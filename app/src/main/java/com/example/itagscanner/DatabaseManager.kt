@@ -658,7 +658,7 @@ class DatabaseManager(private val context: Context) {
     fun getDebugInfo(): String {
         val prefs = context.getSharedPreferences("sig_database_cache", Context.MODE_PRIVATE)
         val lastUpdate = prefs.getLong("last_update", 0L)
-        val dateStr = if (lastUpdate > 0) {
+        val dateStr = if (lastUpdate > 0L) {
             val format = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
             format.format(java.util.Date(lastUpdate))
         } else {
