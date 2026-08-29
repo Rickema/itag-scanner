@@ -264,13 +264,12 @@
                             android:background="@drawable/bg_box_blue_border"
                             android:padding="16dp"
                             android:layout_marginBottom="16dp">
-                            <com.google.android.material.textview.MaterialTextView
+                            <TextView
                                 android:id="@+id/tvTargetInfoTitle"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:text="Scansione mirata con antenna dedicata:"
-                                app:drawableStartCompat="@drawable/ic_info"
-                                app:drawableTint="#1E3A8A"
+                                android:drawableStart="@drawable/ic_info"
                                 android:drawablePadding="6dp"
                                 android:textSize="13sp"
                                 android:textStyle="bold"
@@ -327,14 +326,13 @@
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
                             android:visibility="gone">
-                            <com.google.android.material.textview.MaterialTextView
+                            <TextView
                                 android:id="@+id/btnToastDetails"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
                                 android:text="Dettagli Toast"
-                                app:drawableStartCompat="@drawable/ic_info"
-                                app:drawableTint="#2563EB"
+                                android:drawableStart="@drawable/ic_info"
                                 android:drawablePadding="6dp"
                                 android:textSize="13sp"
                                 android:textStyle="bold"
@@ -343,14 +341,13 @@
                                 android:background="@drawable/bg_btn_outline_blue"
                                 android:paddingVertical="12dp"
                                 android:layout_marginEnd="8dp" />
-                            <com.google.android.material.textview.MaterialTextView
+                            <TextView
                                 android:id="@+id/btnRemoveTarget"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
                                 android:text="Rimuovi Target"
-                                app:drawableStartCompat="@drawable/ic_trash_small"
-                                app:drawableTint="#DC2626"
+                                android:drawableStart="@drawable/ic_trash_small"
                                 android:drawablePadding="6dp"
                                 android:textSize="13sp"
                                 android:textStyle="bold"

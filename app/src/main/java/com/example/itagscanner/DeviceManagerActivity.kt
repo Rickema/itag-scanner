@@ -163,15 +163,20 @@ class DeviceManagerActivity : AppCompatActivity() {
             loadArchive()
         }
 
-        setupSliders()
+        try {
+            setupSliders()
 
-        switchEcoReact.setOnCheckedChangeListener { _, _ ->
-            saveCycleSettings()
+            switchEcoReact.setOnCheckedChangeListener { _, _ ->
+                saveCycleSettings()
+            }
+
+            loadTargetData()
+            loadArchive()
+            selectTab("device")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Errore caricamento: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
         }
-
-        loadTargetData()
-        loadArchive()
-        selectTab("device")
 
         restartServiceButtonReact.setOnClickListener {
             val serviceIntent = Intent(this, ScannerService::class.java)

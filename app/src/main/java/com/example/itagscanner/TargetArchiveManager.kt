@@ -51,16 +51,19 @@ object TargetArchiveManager {
             val jsonArray = JSONArray(archiveStr)
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
-                list.add(TargetArchiveItem(
-                    address = obj.getString("address"),
-                    name = if (obj.isNull("name")) null else obj.getString("name"),
-                    customName = if (obj.isNull("customName")) null else obj.getString("customName"),
-                    type = obj.getString("type"),
-                    category = if (obj.isNull("category")) null else obj.getString("category"),
-                    manufacturer = if (obj.isNull("manufacturer")) null else obj.getString("manufacturer"),
-                    uuids = if (obj.has("uuids") && !obj.isNull("uuids")) obj.getString("uuids") else null,
-                    addedAt = obj.getLong("addedAt")
-                ))
+                val addr = obj.optString("address", "")
+                if (addr.isNotEmpty()) {
+                    list.add(TargetArchiveItem(
+                        address = addr,
+                        name = if (obj.isNull("name")) null else obj.optString("name", null),
+                        customName = if (obj.isNull("customName")) null else obj.optString("customName", null),
+                        type = obj.optString("type", "BLE"),
+                        category = if (obj.isNull("category")) null else obj.optString("category", null),
+                        manufacturer = if (obj.isNull("manufacturer")) null else obj.optString("manufacturer", null),
+                        uuids = if (obj.has("uuids") && !obj.isNull("uuids")) obj.optString("uuids", null) else null,
+                        addedAt = obj.optLong("addedAt", System.currentTimeMillis())
+                    ))
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
