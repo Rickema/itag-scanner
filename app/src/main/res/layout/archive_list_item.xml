@@ -98,7 +98,7 @@
             android:id="@+id/archiveDeleteButton"
             android:layout_width="32dp"
             android:layout_height="32dp"
-            android:src="@android:drawable/ic_menu_delete"
+            android:src="@drawable/ic_trash"
             app:tint="#EF4444"
             android:background="?android:attr/selectableItemBackgroundBorderless" />
     </LinearLayout>

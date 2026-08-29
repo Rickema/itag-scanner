@@ -36,7 +36,11 @@ class DeviceManagerActivity : AppCompatActivity() {
     private lateinit var tvTargetTechBadge: TextView
     private lateinit var tvTargetMacDetails: TextView
     private lateinit var tvTargetUuids: TextView
-    private lateinit var removeTargetBtnLarge: Button
+    private lateinit var targetActionsRow: LinearLayout
+    private lateinit var btnToastDetails: TextView
+    private lateinit var btnRemoveTarget: TextView
+    private lateinit var btnCopyMac: TextView
+    private lateinit var btnRenameTarget: TextView
 
     private lateinit var tvDurationValue: TextView
     private lateinit var seekDurationReact: SeekBar
@@ -88,7 +92,11 @@ class DeviceManagerActivity : AppCompatActivity() {
         tvTargetTechBadge = findViewById(R.id.tvTargetTechBadge)
         tvTargetMacDetails = findViewById(R.id.tvTargetMacDetails)
         tvTargetUuids = findViewById(R.id.tvTargetUuids)
-        removeTargetBtnLarge = findViewById(R.id.removeTargetBtnLarge)
+        targetActionsRow = findViewById(R.id.targetActionsRow)
+        btnToastDetails = findViewById(R.id.btnToastDetails)
+        btnRemoveTarget = findViewById(R.id.btnRemoveTarget)
+        btnCopyMac = findViewById(R.id.btnCopyMac)
+        btnRenameTarget = findViewById(R.id.btnRenameTarget)
         archiveContainerReact = findViewById(R.id.archiveContainerReact)
         archiveCountBadgeReact = findViewById(R.id.archiveCountBadgeReact)
 
@@ -118,6 +126,25 @@ class DeviceManagerActivity : AppCompatActivity() {
             findViewById(R.id.presetPause120s)
         )
 
+        
+        btnCopyMac.setOnClickListener {
+            val mac = prefs.getString("target_mac", null)
+            if (mac != null) {
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = android.content.ClipData.newPlainText("MAC Address", mac)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(this, "MAC copiato", Toast.LENGTH_SHORT).show()
+            }
+        }
+        
+        btnToastDetails.setOnClickListener {
+            Toast.makeText(this, "Dettagli Toast (Simulazione)", Toast.LENGTH_SHORT).show()
+        }
+        
+        btnRenameTarget.setOnClickListener {
+             Toast.makeText(this, "Rinomina non ancora implementato", Toast.LENGTH_SHORT).show()
+        }
+
         setupSliders()
 
         switchEcoReact.setOnCheckedChangeListener { _, _ ->
@@ -127,7 +154,7 @@ class DeviceManagerActivity : AppCompatActivity() {
         loadArchive()
         selectTab("device")
 
-        removeTargetBtnLarge.setOnClickListener {
+        btnRemoveTarget.setOnClickListener {
             getSharedPreferences("itag_prefs", Context.MODE_PRIVATE).edit()
                 .remove("target_mac")
                 .remove("target_name")
@@ -220,7 +247,26 @@ class DeviceManagerActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupSliders() {
+    private fun 
+        btnCopyMac.setOnClickListener {
+            val mac = prefs.getString("target_mac", null)
+            if (mac != null) {
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = android.content.ClipData.newPlainText("MAC Address", mac)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(this, "MAC copiato", Toast.LENGTH_SHORT).show()
+            }
+        }
+        
+        btnToastDetails.setOnClickListener {
+            Toast.makeText(this, "Dettagli Toast (Simulazione)", Toast.LENGTH_SHORT).show()
+        }
+        
+        btnRenameTarget.setOnClickListener {
+             Toast.makeText(this, "Rinomina non ancora implementato", Toast.LENGTH_SHORT).show()
+        }
+
+        setupSliders() {
         seekDurationReact.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 scanDurationSec = 2 + progress
@@ -296,6 +342,7 @@ class DeviceManagerActivity : AppCompatActivity() {
             tvTargetNameLarge.text = name ?: "Dispositivo"
             tvTargetMacDetails.text = mac
             tvTargetTechBadge.text = "● Target $tech"
+            tvTargetTechBadge.setBackgroundResource(R.drawable.bg_badge_outline_blue)
             
             val savedUuids = prefs.getString("target_uuids", null)
             val archive = TargetArchiveManager.getArchive(this)
@@ -308,14 +355,17 @@ class DeviceManagerActivity : AppCompatActivity() {
                 tvTargetUuids.text = "Nessun servizio standard rilevato"
             }
             
-            removeTargetBtnLarge.visibility = View.VISIBLE
+            targetActionsRow.visibility = View.VISIBLE
+            btnRenameTarget.visibility = View.VISIBLE
             btnRenameTarget.visibility = View.VISIBLE
         } else {
             tvTargetNameLarge.text = "Nessun target"
             tvTargetMacDetails.text = "--"
             tvTargetTechBadge.text = "● Target Sconosciuto"
+            tvTargetTechBadge.setBackgroundResource(0)
             tvTargetUuids.text = "--"
-            removeTargetBtnLarge.visibility = View.GONE
+            targetActionsRow.visibility = View.GONE
+            btnRenameTarget.visibility = View.GONE
             btnRenameTarget.visibility = View.GONE
         }
     }
