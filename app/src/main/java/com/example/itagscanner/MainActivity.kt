@@ -517,9 +517,10 @@ class MainActivity : AppCompatActivity() {
             .putString("target_mac", device.address)
             .putString("target_name", displayName)
             .putString("target_technology", device.type)
+            .putString("target_uuids", device.uuids)
             .apply()
 
-        TargetArchiveManager.addToArchive(this, device.address, device.name, device.customName, device.type, device.category, device.manufacturer)
+        TargetArchiveManager.addToArchive(this, device.address, device.name, device.customName, device.type, device.category, device.manufacturer, device.uuids)
 
         Toast.makeText(this, "Target impostato: $displayName [${device.address}]", Toast.LENGTH_SHORT).show()
 

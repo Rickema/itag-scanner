@@ -5,7 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object TargetArchiveManager {
-    fun addToArchive(context: Context, address: String, name: String?, customName: String?, type: String, category: String?, manufacturer: String?) {
+    fun addToArchive(context: Context, address: String, name: String?, customName: String?, type: String, category: String?, manufacturer: String?, uuids: String? = null) {
         val prefs = context.getSharedPreferences("itag_prefs", Context.MODE_PRIVATE)
         val archiveStr = prefs.getString("bt_target_archive", "[]")
         try {
@@ -21,6 +21,7 @@ object TargetArchiveManager {
                 put("type", type)
                 put("category", category ?: JSONObject.NULL)
                 put("manufacturer", manufacturer ?: JSONObject.NULL)
+                put("uuids", uuids ?: JSONObject.NULL)
                 put("addedAt", System.currentTimeMillis())
             }
             newArray.put(newItem)
@@ -57,6 +58,7 @@ object TargetArchiveManager {
                     type = obj.getString("type"),
                     category = if (obj.isNull("category")) null else obj.getString("category"),
                     manufacturer = if (obj.isNull("manufacturer")) null else obj.getString("manufacturer"),
+                    uuids = if (obj.has("uuids") && !obj.isNull("uuids")) obj.getString("uuids") else null,
                     addedAt = obj.getLong("addedAt")
                 ))
             }
@@ -92,5 +94,6 @@ data class TargetArchiveItem(
     val type: String,
     val category: String?,
     val manufacturer: String?,
+    val uuids: String? = null,
     val addedAt: Long
 )

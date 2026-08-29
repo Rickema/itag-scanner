@@ -132,6 +132,7 @@ class DeviceManagerActivity : AppCompatActivity() {
                 .remove("target_mac")
                 .remove("target_name")
                 .remove("target_technology")
+                .remove("target_uuids")
                 .apply()
             stopService(Intent(this, ScannerService::class.java))
             Toast.makeText(this, "Target dissociato", Toast.LENGTH_SHORT).show()
@@ -296,12 +297,15 @@ class DeviceManagerActivity : AppCompatActivity() {
             tvTargetMacDetails.text = mac
             tvTargetTechBadge.text = "● Target $tech"
             
+            val savedUuids = prefs.getString("target_uuids", null)
             val archive = TargetArchiveManager.getArchive(this)
-            val matched = archive.find { it.address == mac }
-            if (matched != null && matched.uuids.isNotEmpty()) {
-                tvTargetUuids.text = matched.uuids.joinToString(", ")
+            val matched = archive.find { it.address.equals(mac, ignoreCase = true) }
+            val uuidsText = if (!savedUuids.isNullOrBlank()) savedUuids else matched?.uuids
+            
+            if (!uuidsText.isNullOrBlank()) {
+                tvTargetUuids.text = uuidsText
             } else {
-                tvTargetUuids.text = "Nessun servizio rilevato"
+                tvTargetUuids.text = "Nessun servizio standard rilevato"
             }
             
             removeTargetBtnLarge.visibility = View.VISIBLE
@@ -373,8 +377,9 @@ class DeviceManagerActivity : AppCompatActivity() {
                         .putString("target_mac", item.address)
                         .putString("target_name", displayName)
                         .putString("target_technology", item.type)
+                        .putString("target_uuids", item.uuids ?: "")
                         .apply()
-                    TargetArchiveManager.addToArchive(this@DeviceManagerActivity, item.address, item.name, item.customName, item.type, item.category, item.manufacturer)
+                    TargetArchiveManager.addToArchive(this@DeviceManagerActivity, item.address, item.name, item.customName, item.type, item.category, item.manufacturer, item.uuids)
                     Toast.makeText(this@DeviceManagerActivity, "Target attivato dall'archivio: ${item.address}", Toast.LENGTH_SHORT).show()
                     loadTargetData()
                     loadArchive()
