@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+xml_content = """<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -44,10 +44,10 @@
             android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="#059669"
-            android:background="@drawable/bg_badge_green_react"
+            android:background="#D1FAE5"
             android:paddingHorizontal="10dp"
             android:paddingVertical="4dp"
-            
+            app:cornerRadius="16dp"
             android:layout_marginStart="8dp"/>
     </LinearLayout>
     
@@ -186,7 +186,7 @@
                                 android:text="Rinomina"
                                 android:textSize="12sp"
                                 android:textColor="#2563EB"
-                                android:background="@drawable/bg_btn_light_blue_react"
+                                android:background="#DBEAFE"
                                 android:paddingHorizontal="8dp"
                                 android:paddingVertical="4dp" />
                         </LinearLayout>
@@ -368,10 +368,10 @@
                                 android:textSize="12sp"
                                 android:textStyle="bold"
                                 android:textColor="#4F46E5"
-                                android:background="@drawable/bg_badge_indigo_react"
+                                android:background="#E0E7FF"
                                 android:paddingHorizontal="10dp"
                                 android:paddingVertical="4dp"
-                                 />
+                                app:cornerRadius="16dp" />
                         </LinearLayout>
                         
                         <TextView
@@ -464,10 +464,10 @@
                                 android:text="5 secondi"
                                 android:textSize="13sp"
                                 android:textColor="#4F46E5"
-                                android:background="@drawable/bg_badge_indigo_react"
+                                android:background="#EEF2FF"
                                 android:paddingHorizontal="12dp"
                                 android:paddingVertical="6dp"
-                                
+                                app:cornerRadius="16dp"
                                 android:layout_marginStart="8dp" />
                         </LinearLayout>
                         
@@ -557,10 +557,10 @@
                                 android:text="Pausa: 20s"
                                 android:textSize="13sp"
                                 android:textColor="#4F46E5"
-                                android:background="@drawable/bg_badge_indigo_react"
+                                android:background="#EEF2FF"
                                 android:paddingHorizontal="12dp"
                                 android:paddingVertical="6dp"
-                                
+                                app:cornerRadius="16dp"
                                 android:layout_marginStart="8dp" />
                         </LinearLayout>
                         
@@ -601,54 +601,6 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
                 
-                
-                <!-- Card 3: Modalità Risparmio -->
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="24dp"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="2dp"
-                    app:strokeWidth="1dp"
-                    app:strokeColor="#E5E7EB"
-                    app:cardBackgroundColor="#FFFFFF">
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="20dp">
-                        
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="Modalità Risparmio"
-                                android:textSize="16sp"
-                                android:textStyle="bold"
-                                android:textColor="#111827" />
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="Allunga automaticamente la pausa (+50%) quando il target è stabilmente fermo."
-                                android:textSize="12sp"
-                                android:textColor="#6B7280"
-                                android:layout_marginTop="2dp" />
-                        </LinearLayout>
-                        
-                        <com.google.android.material.switchmaterial.SwitchMaterial
-                            android:id="@+id/switchEcoReact"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:checked="true" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/restartServiceButtonReact"
                     android:layout_width="match_parent"
@@ -725,7 +677,7 @@
                                 android:textSize="13sp"
                                 android:textStyle="bold"
                                 android:textColor="#FFFFFF"
-                                android:background="@drawable/bg_btn_green_react"
+                                android:background="#10B981"
                                 android:paddingHorizontal="12dp"
                                 android:paddingVertical="8dp" />
                         </LinearLayout>
@@ -810,7 +762,7 @@
                                 android:textSize="13sp"
                                 android:textStyle="bold"
                                 android:textColor="#FFFFFF"
-                                android:background="@drawable/bg_btn_orange_react"
+                                android:background="#F59E0B"
                                 android:paddingHorizontal="12dp"
                                 android:paddingVertical="8dp" />
                         </LinearLayout>
@@ -897,7 +849,7 @@
                         </LinearLayout>
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_chip_unselected_react" android:padding="12dp" android:layout_marginBottom="8dp">
                             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="extra_technology" android:textSize="13sp" android:textStyle="bold" android:fontFamily="monospace" android:textColor="#111827" android:layout_marginBottom="4dp"/>
-                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text=""BLE" oppure "CLASSIC" (stringa)" android:textSize="12sp" android:textColor="#6B7280"/>
+                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="\"BLE\" oppure \"CLASSIC\" (stringa)" android:textSize="12sp" android:textColor="#6B7280"/>
                         </LinearLayout>
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_chip_unselected_react" android:padding="12dp">
                             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="extra_timestamp" android:textSize="13sp" android:textStyle="bold" android:fontFamily="monospace" android:textColor="#111827" android:layout_marginBottom="4dp"/>
@@ -910,3 +862,7 @@
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
+"""
+
+with open('app/src/main/res/layout/activity_device_manager.xml', 'w') as f:
+    f.write(xml_content)
